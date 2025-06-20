@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Users, 
   Database, 
@@ -19,7 +20,9 @@ import {
   CheckCircle,
   Plus,
   Edit,
-  Eye
+  Eye,
+  Save,
+  X
 } from 'lucide-react';
 
 // Mock data for admin dashboard
@@ -45,6 +48,125 @@ const mockFormulas = [
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  const [isAddFormulaOpen, setIsAddFormulaOpen] = useState(false);
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  // Formula form state
+  const [formulaData, setFormulaData] = useState({
+    name: '',
+    description: '',
+    formula: '',
+    blocks: {
+      Block1: { name: '', unit: '' },
+      Block2: { name: '', unit: '' },
+      Block3: { name: '', unit: '' },
+      Block4: { name: '', unit: '' },
+      Block5: { name: '', unit: '' },
+      Block6: { name: '', unit: '' },
+      Block7: { name: '', unit: '' },
+      Block8: { name: '', unit: '' }
+    }
+  });
+
+  // User form state
+  const [userData, setUserData] = useState({
+    name: '',
+    email: '',
+    role: 'vendor',
+    password: ''
+  });
+
+  const handleAddFormula = async () => {
+    setLoading(true);
+    try {
+      // Simulate API call - replace with actual endpoint
+      console.log('Adding formula:', formulaData);
+      
+      // Mock successful response
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast({
+        title: "Formula Added",
+        description: `Formula "${formulaData.name}" has been successfully created.`,
+      });
+      
+      // Reset form and close modal
+      setFormulaData({
+        name: '',
+        description: '',
+        formula: '',
+        blocks: {
+          Block1: { name: '', unit: '' },
+          Block2: { name: '', unit: '' },
+          Block3: { name: '', unit: '' },
+          Block4: { name: '', unit: '' },
+          Block5: { name: '', unit: '' },
+          Block6: { name: '', unit: '' },
+          Block7: { name: '', unit: '' },
+          Block8: { name: '', unit: '' }
+        }
+      });
+      setIsAddFormulaOpen(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add formula. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddUser = async () => {
+    setLoading(true);
+    try {
+      console.log('Adding user:', userData);
+      
+      // Mock successful response
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast({
+        title: "User Added",
+        description: `User "${userData.name}" has been successfully created.`,
+      });
+      
+      // Reset form and close modal
+      setUserData({
+        name: '',
+        email: '',
+        role: 'vendor',
+        password: ''
+      });
+      setIsAddUserOpen(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add user. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditItem = (type: string, id: string) => {
+    console.log(`Editing ${type} with ID:`, id);
+    toast({
+      title: "Edit Mode",
+      description: `Opening ${type} editor...`,
+    });
+  };
+
+  const handleViewItem = (type: string, id: string) => {
+    console.log(`Viewing ${type} with ID:`, id);
+    toast({
+      title: "View Mode",
+      description: `Opening ${type} details...`,
+    });
+  };
 
   const getRoleBadge = (role: string) => {
     const roleConfig = {
@@ -206,10 +328,83 @@ const AdminDashboard = () => {
                     <CardTitle>User Management</CardTitle>
                     <CardDescription>Manage system users and their roles</CardDescription>
                   </div>
-                  <Button className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add User
-                  </Button>
+                  <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="bg-blue-600 hover:bg-blue-700">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add User
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Add New User</DialogTitle>
+                        <DialogDescription>
+                          Create a new user account with appropriate role permissions.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="user-name">Full Name</Label>
+                          <Input
+                            id="user-name"
+                            value={userData.name}
+                            onChange={(e) => setUserData({...userData, name: e.target.value})}
+                            placeholder="Enter full name"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="user-email">Email</Label>
+                          <Input
+                            id="user-email"
+                            type="email"
+                            value={userData.email}
+                            onChange={(e) => setUserData({...userData, email: e.target.value})}
+                            placeholder="Enter email address"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="user-role">Role</Label>
+                          <select
+                            id="user-role"
+                            value={userData.role}
+                            onChange={(e) => setUserData({...userData, role: e.target.value})}
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                          >
+                            <option value="vendor">Vendor</option>
+                            <option value="level1">Level 1 Reviewer</option>
+                            <option value="level2">Level 2 Validator</option>
+                            <option value="level3">Level 3 Approver</option>
+                            <option value="admin">Administrator</option>
+                          </select>
+                        </div>
+                        <div>
+                          <Label htmlFor="user-password">Password</Label>
+                          <Input
+                            id="user-password"
+                            type="password"
+                            value={userData.password}
+                            onChange={(e) => setUserData({...userData, password: e.target.value})}
+                            placeholder="Enter password"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsAddUserOpen(false)}
+                          disabled={loading}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleAddUser}
+                          disabled={loading || !userData.name || !userData.email}
+                        >
+                          {loading ? "Adding..." : "Add User"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </CardHeader>
               <CardContent>
@@ -232,10 +427,18 @@ const AdminDashboard = () => {
                           {user.status}
                         </Badge>
                         <div className="flex space-x-1">
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleEditItem('user', user.id)}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleViewItem('user', user.id)}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
                         </div>
@@ -256,10 +459,110 @@ const AdminDashboard = () => {
                     <CardTitle>Formula Management</CardTitle>
                     <CardDescription>Configure and manage calculation formulas</CardDescription>
                   </div>
-                  <Button className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Formula
-                  </Button>
+                  <Dialog open={isAddFormulaOpen} onOpenChange={setIsAddFormulaOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="bg-blue-600 hover:bg-blue-700">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Formula
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Add New Formula</DialogTitle>
+                        <DialogDescription>
+                          Create a new calculation formula with configurable blocks.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="formula-name">Formula Name</Label>
+                            <Input
+                              id="formula-name"
+                              value={formulaData.name}
+                              onChange={(e) => setFormulaData({...formulaData, name: e.target.value})}
+                              placeholder="Enter formula name"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="formula-description">Description</Label>
+                            <Input
+                              id="formula-description"
+                              value={formulaData.description}
+                              onChange={(e) => setFormulaData({...formulaData, description: e.target.value})}
+                              placeholder="Enter description"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="formula-expression">Formula Expression</Label>
+                          <Input
+                            id="formula-expression"
+                            value={formulaData.formula}
+                            onChange={(e) => setFormulaData({...formulaData, formula: e.target.value})}
+                            placeholder="e.g., Block1 + Block2 * Block3"
+                            className="font-mono"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Use Block1-Block8 in your expressions (e.g., Block1 + Block2 * Block3)
+                          </p>
+                        </div>
+
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-3">Block Configuration</h4>
+                          <div className="grid grid-cols-2 gap-4">
+                            {Object.entries(formulaData.blocks).map(([blockKey, block]) => (
+                              <div key={blockKey} className="border p-3 rounded-lg">
+                                <h5 className="font-medium text-sm text-gray-700 mb-2">{blockKey}</h5>
+                                <div className="space-y-2">
+                                  <Input
+                                    placeholder="Block name"
+                                    value={block.name}
+                                    onChange={(e) => setFormulaData({
+                                      ...formulaData,
+                                      blocks: {
+                                        ...formulaData.blocks,
+                                        [blockKey]: { ...block, name: e.target.value }
+                                      }
+                                    })}
+                                  />
+                                  <Input
+                                    placeholder="Unit (e.g., kg, $, %)"
+                                    value={block.unit}
+                                    onChange={(e) => setFormulaData({
+                                      ...formulaData,
+                                      blocks: {
+                                        ...formulaData.blocks,
+                                        [blockKey]: { ...block, unit: e.target.value }
+                                      }
+                                    })}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsAddFormulaOpen(false)}
+                          disabled={loading}
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleAddFormula}
+                          disabled={loading || !formulaData.name || !formulaData.formula}
+                        >
+                          <Save className="h-4 w-4 mr-2" />
+                          {loading ? "Saving..." : "Save Formula"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </CardHeader>
               <CardContent>
@@ -280,10 +583,18 @@ const AdminDashboard = () => {
                           {formula.status}
                         </Badge>
                         <div className="flex space-x-1">
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleEditItem('formula', formula.id)}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleViewItem('formula', formula.id)}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
                         </div>
