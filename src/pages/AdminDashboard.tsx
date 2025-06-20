@@ -10,9 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Users, 
-  Settings, 
   Database, 
-  Shield, 
   Activity,
   Building,
   FileText,
@@ -49,7 +47,7 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
 
   const getRoleBadge = (role: string) => {
-    const roleMap = {
+    const roleConfig = {
       vendor: { label: 'Vendor', className: 'bg-green-100 text-green-800' },
       level1: { label: 'Level 1', className: 'bg-blue-100 text-blue-800' },
       level2: { label: 'Level 2', className: 'bg-purple-100 text-purple-800' },
@@ -57,7 +55,7 @@ const AdminDashboard = () => {
       admin: { label: 'Admin', className: 'bg-red-100 text-red-800' }
     };
     
-    const config = roleMap[role as keyof typeof roleMap];
+    const config = roleConfig[role as keyof typeof roleConfig];
     return <Badge className={config.className}>{config.label}</Badge>;
   };
 
@@ -147,7 +145,7 @@ const AdminDashboard = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">API Response Time</span>
-                    <span className="text-sm font-medium">< 200ms</span>
+                    <span className="text-sm font-medium">Less than 200ms</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Active Sessions</span>
