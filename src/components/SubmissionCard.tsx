@@ -4,12 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import RejectionDialog from './RejectionDialog';
+import ValueEditDialog from './ValueEditDialog';
+import { workflowAPI } from '../services/workflowAPI';
 import { 
   CheckCircle,
   Clock,
   FileText,
   AlertTriangle,
-  Download
+  Download,
+  Edit,
+  MessageSquare
 } from 'lucide-react';
 
 interface Submission {
@@ -20,8 +25,21 @@ interface Submission {
   submittedAt: string;
   description: string;
   values: Record<string, number>;
+  originalValues?: Record<string, number>;
+  l1EditedValues?: Record<string, number>;
+  l2EditedValues?: Record<string, number>;
   result: number;
   erpReady: boolean;
+  rejectionComment?: string;
+  l1Comment?: string;
+  l2Comment?: string;
+  valueChangeHistory?: Array<{
+    level: string;
+    originalValues: Record<string, number>;
+    newValues: Record<string, number>;
+    comment: string;
+    timestamp: string;
+  }>;
 }
 
 interface SubmissionCardProps {
@@ -36,6 +54,8 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
   onStatusChange 
 }) => {
   const [loading, setLoading] = useState(false);
+  const [showRejectionDialog, setShowRejectionDialog] = useState(false);
+  const [showValueEditDialog, setShowValueEditDialog] = useState(false);
   const { toast } = useToast();
 
   const getStatusConfig = (status: string) => {
@@ -78,10 +98,8 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
       const nextStatus = getNextStatus();
       console.log(`Updating submission ${submission.id} from ${submission.status} to ${nextStatus}`);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await workflowAPI.updateSubmissionStatus(submission.id, { status: nextStatus });
       
-      // For Level 3, simulate PDF generation
       if (userRole === 'level3') {
         console.log('Generating PDF report for submission:', submission.id);
         toast({
@@ -95,7 +113,6 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
         });
       }
       
-      // Call parent callback
       onStatusChange?.(submission.id, nextStatus);
       
     } catch (error) {
@@ -109,25 +126,58 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
     }
   };
 
-  const handleReject = async () => {
+  const handleReject = async (comment: string) => {
     setLoading(true);
     try {
-      console.log(`Rejecting submission ${submission.id}`);
+      console.log(`Rejecting submission ${submission.id} with comment:`, comment);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await workflowAPI.updateSubmissionStatus(submission.id, { 
+        status: 'rejected',
+        rejectionComment: comment
+      });
       
       toast({
         title: "Submission Rejected",
-        description: "Submission has been rejected and returned to vendor.",
+        description: "Submission has been rejected and returned to vendor with your comments.",
       });
       
       onStatusChange?.(submission.id, 'rejected');
+      setShowRejectionDialog(false);
       
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to reject submission. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleValueEdit = async (newValues: Record<string, number>, comment: string) => {
+    setLoading(true);
+    try {
+      console.log(`Editing values for submission ${submission.id}:`, newValues);
+      
+      await workflowAPI.updateSubmissionStatus(submission.id, {
+        editedValues: newValues,
+        editComment: comment
+      });
+      
+      toast({
+        title: "Values Updated",
+        description: "The submission values have been updated. Changes are tracked for the next level.",
+      });
+      
+      // Trigger a refresh of the submission data
+      onStatusChange?.(submission.id, submission.status);
+      setShowValueEditDialog(false);
+      
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update values. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -143,95 +193,227 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
     });
   };
 
+  const renderValueComparison = () => {
+    if (!submission.originalValues) return null;
+
+    const showL1Changes = userRole !== 'level1' && submission.l1EditedValues;
+    const showL2Changes = userRole === 'level3' && submission.l2EditedValues;
+
+    return (
+      <div className="space-y-3">
+        <h4 className="font-medium text-gray-700">Value History</h4>
+        
+        {/* Original Values */}
+        <div className="bg-gray-50 p-3 rounded-lg">
+          <div className="text-sm font-medium text-gray-600 mb-2">Original (Vendor)</div>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            {Object.entries(submission.originalValues).map(([key, value]) => (
+              <div key={key} className="flex justify-between">
+                <span>{key}:</span>
+                <span className="font-mono">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* L1 Changes */}
+        {showL1Changes && (
+          <div className="bg-blue-50 p-3 rounded-lg">
+            <div className="text-sm font-medium text-blue-600 mb-2">
+              Level 1 Changes
+              {submission.l1Comment && (
+                <span className="ml-2 text-xs text-blue-500">({submission.l1Comment})</span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              {Object.entries(submission.l1EditedValues!).map(([key, value]) => (
+                <div key={key} className="flex justify-between">
+                  <span>{key}:</span>
+                  <span className={`font-mono ${
+                    submission.originalValues![key] !== value ? 'text-blue-600 font-bold' : ''
+                  }`}>
+                    {value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* L2 Changes */}
+        {showL2Changes && (
+          <div className="bg-purple-50 p-3 rounded-lg">
+            <div className="text-sm font-medium text-purple-600 mb-2">
+              Level 2 Changes
+              {submission.l2Comment && (
+                <span className="ml-2 text-xs text-purple-500">({submission.l2Comment})</span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              {Object.entries(submission.l2EditedValues!).map(([key, value]) => (
+                <div key={key} className="flex justify-between">
+                  <span>{key}:</span>
+                  <span className={`font-mono ${
+                    (submission.l1EditedValues || submission.originalValues)![key] !== value ? 'text-purple-600 font-bold' : ''
+                  }`}>
+                    {value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Current Values */}
+        <div className="bg-green-50 p-3 rounded-lg">
+          <div className="text-sm font-medium text-green-600 mb-2">Current Values</div>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            {Object.entries(submission.values).map(([key, value]) => (
+              <div key={key} className="flex justify-between">
+                <span>{key}:</span>
+                <span className="font-mono font-bold">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const StatusIcon = getStatusConfig(submission.status).icon;
+  const canEdit = canApprove() && submission.status !== 'approved' && submission.status !== 'rejected';
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">{submission.formula}</CardTitle>
-          <div className="flex items-center space-x-2">
-            <Badge className={getStatusConfig(submission.status).className}>
-              <StatusIcon className="h-3 w-3 mr-1" />
-              {getStatusConfig(submission.status).label}
-            </Badge>
-            {submission.erpReady && (
-              <Badge className="bg-blue-100 text-blue-800">
-                ERP Ready
+    <>
+      <Card className="w-full">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">{submission.formula}</CardTitle>
+            <div className="flex items-center space-x-2">
+              <Badge className={getStatusConfig(submission.status).className}>
+                <StatusIcon className="h-3 w-3 mr-1" />
+                {getStatusConfig(submission.status).label}
               </Badge>
-            )}
+              {submission.erpReady && (
+                <Badge className="bg-blue-100 text-blue-800">
+                  ERP Ready
+                </Badge>
+              )}
+            </div>
           </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="font-medium text-gray-600">Vendor:</span>
+              <span className="ml-2">{submission.vendor}</span>
+            </div>
+            <div>
+              <span className="font-medium text-gray-600">Submitted:</span>
+              <span className="ml-2">{submission.submittedAt}</span>
+            </div>
+            <div>
+              <span className="font-medium text-gray-600">Result:</span>
+              <span className="ml-2 font-mono">{submission.result}</span>
+            </div>
+            <div>
+              <span className="font-medium text-gray-600">ID:</span>
+              <span className="ml-2 font-mono">{submission.id}</span>
+            </div>
+          </div>
+          
           <div>
-            <span className="font-medium text-gray-600">Vendor:</span>
-            <span className="ml-2">{submission.vendor}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-600">Submitted:</span>
-            <span className="ml-2">{submission.submittedAt}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-600">Result:</span>
-            <span className="ml-2 font-mono">{submission.result}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-600">ID:</span>
-            <span className="ml-2 font-mono">{submission.id}</span>
-          </div>
-        </div>
-        
-        <div>
-          <span className="font-medium text-gray-600">Description:</span>
-          <p className="text-sm text-gray-700 mt-1">{submission.description}</p>
-        </div>
-
-        <div className="flex items-center justify-between pt-4 border-t">
-          <div className="flex space-x-2">
-            {canApprove() && (
-              <Button
-                onClick={handleApproval}
-                disabled={loading}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                {loading ? "Processing..." : getActionLabel()}
-              </Button>
-            )}
-            
-            <Button
-              variant="outline"
-              onClick={handleReject}
-              disabled={loading || submission.status === 'approved'}
-              className="text-red-600 border-red-600 hover:bg-red-50"
-            >
-              <AlertTriangle className="h-4 w-4 mr-2" />
-              {loading ? "Processing..." : "Reject"}
-            </Button>
+            <span className="font-medium text-gray-600">Description:</span>
+            <p className="text-sm text-gray-700 mt-1">{submission.description}</p>
           </div>
 
-          <div className="flex space-x-2">
-            {submission.status === 'approved' && (
+          {/* Rejection Comment Display */}
+          {submission.rejectionComment && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <div className="flex items-center space-x-2 mb-2">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+                <span className="font-medium text-red-800">Rejection Reason</span>
+              </div>
+              <p className="text-sm text-red-700">{submission.rejectionComment}</p>
+            </div>
+          )}
+
+          {/* Value Comparison */}
+          {renderValueComparison()}
+
+          <div className="flex items-center justify-between pt-4 border-t">
+            <div className="flex space-x-2">
+              {canApprove() && (
+                <Button
+                  onClick={handleApproval}
+                  disabled={loading}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  {loading ? "Processing..." : getActionLabel()}
+                </Button>
+              )}
+              
+              {canEdit && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowValueEditDialog(true)}
+                  disabled={loading}
+                  className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Values
+                </Button>
+              )}
+              
               <Button
                 variant="outline"
-                onClick={handleDownloadPDF}
-                size="sm"
+                onClick={() => setShowRejectionDialog(true)}
+                disabled={loading || submission.status === 'approved'}
+                className="text-red-600 border-red-600 hover:bg-red-50"
               >
-                <Download className="h-4 w-4 mr-2" />
-                PDF
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                {loading ? "Processing..." : "Reject"}
               </Button>
-            )}
-            
-            <Button variant="outline" size="sm">
-              <FileText className="h-4 w-4 mr-2" />
-              Details
-            </Button>
+            </div>
+
+            <div className="flex space-x-2">
+              {submission.status === 'approved' && (
+                <Button
+                  variant="outline"
+                  onClick={handleDownloadPDF}
+                  size="sm"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  PDF
+                </Button>
+              )}
+              
+              <Button variant="outline" size="sm">
+                <FileText className="h-4 w-4 mr-2" />
+                Details
+              </Button>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Dialogs */}
+      <RejectionDialog
+        open={showRejectionDialog}
+        onOpenChange={setShowRejectionDialog}
+        onConfirm={handleReject}
+        loading={loading}
+      />
+
+      <ValueEditDialog
+        open={showValueEditDialog}
+        onOpenChange={setShowValueEditDialog}
+        onConfirm={handleValueEdit}
+        originalValues={submission.values}
+        loading={loading}
+      />
+    </>
   );
 };
 
