@@ -158,6 +158,3 @@ class WorkflowAPI {
 
 // Export singleton instance
 export const workflowAPI = new WorkflowAPI();
-
-// Export types for use in components
-export type { FormulaData, UserData, SubmissionUpdate };
