@@ -1,7 +1,15 @@
 
+import { supabase } from '@/integrations/supabase/client';
+
 interface Contract {
   id: string;
-  vendor: string;
+  vendor: {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
   projectName: string;
   totalAmount: number;
   startDate: string;
@@ -57,124 +65,195 @@ interface ApprovalHistory {
 }
 
 class ContractAPI {
-  private contracts: Contract[] = [
-    {
-      id: 'CONTRACT-001',
-      vendor: 'ABC Manufacturing',
-      projectName: 'Office Renovation Phase 1',
-      totalAmount: 50000,
-      startDate: '2024-02-01',
-      description: 'Complete office renovation including furniture and equipment installation',
-      status: 'submitted',
-      createdAt: '2024-01-20T09:30:00Z',
-      updatedAt: '2024-01-20T09:30:00Z',
-      items: [
-        {
-          id: 'ITEM-001',
-          contractId: 'CONTRACT-001',
-          description: 'Office Desks',
-          quantity: 20,
-          deliveredQuantity: 0,
-          unitPrice: 500,
-          isSubitem: false
-        },
-        {
-          id: 'ITEM-002',
-          contractId: 'CONTRACT-001',
-          description: 'Ergonomic Chairs',
-          quantity: 20,
-          deliveredQuantity: 0,
-          unitPrice: 300,
-          isSubitem: false
-        },
-        {
-          id: 'ITEM-003',
-          contractId: 'CONTRACT-001',
-          description: 'Conference Tables',
-          quantity: 5,
-          deliveredQuantity: 0,
-          unitPrice: 800,
-          isSubitem: false
-        }
-      ],
-      submissions: [
-        {
-          id: 'SUB-001',
-          contractId: 'CONTRACT-001',
-          vendorId: 'VENDOR-001',
-          trackingNumber: 'TRK-20240120-001',
-          submissionDate: '2024-01-20T09:30:00Z',
-          attachments: [],
-          approvalHistory: []
-        }
-      ]
-    },
-    {
-      id: 'CONTRACT-002',
-      vendor: 'XYZ Corp',
-      projectName: 'IT Infrastructure Upgrade',
-      totalAmount: 75000,
-      startDate: '2024-02-15',
-      description: 'Network equipment and server installation for main office',
-      status: 'l1_review',
-      createdAt: '2024-01-19T14:20:00Z',
-      updatedAt: '2024-01-20T10:15:00Z',
-      items: [
-        {
-          id: 'ITEM-004',
-          contractId: 'CONTRACT-002',
-          description: 'Network Switches',
-          quantity: 10,
-          deliveredQuantity: 8,
-          unitPrice: 1200,
-          isSubitem: false
-        },
-        {
-          id: 'ITEM-005',
-          contractId: 'CONTRACT-002',
-          description: 'Server Racks',
-          quantity: 3,
-          deliveredQuantity: 3,
-          unitPrice: 2500,
-          isSubitem: false
-        }
-      ],
-      submissions: [
-        {
-          id: 'SUB-002',
-          contractId: 'CONTRACT-002',
-          vendorId: 'VENDOR-002',
-          trackingNumber: 'TRK-20240119-002',
-          submissionDate: '2024-01-19T14:20:00Z',
-          statusNotes: 'Partial delivery - 2 network switches pending',
-          attachments: [],
-          approvalHistory: [
-            {
-              id: 'HIST-001',
-              submissionId: 'SUB-002',
-              approverLevel: 1,
-              approverId: 'USER-002',
-              action: 'modified',
-              changedFields: {
-                'deliveredQuantity': { before: 10, after: 8 }
-              },
-              notes: 'Updated delivered quantity due to partial shipment',
-              actionDate: '2024-01-20T10:15:00Z'
-            }
-          ]
-        }
-      ]
-    }
-  ];
-
   async getContracts(): Promise<Contract[]> {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return [...this.contracts];
+    try {
+      const { data: contractsData, error: contractsError } = await supabase
+        .from('contracts')
+        .select(`
+          *,
+          vendors(*)
+        `);
+
+      if (contractsError) throw contractsError;
+
+      const contracts = await Promise.all(
+        contractsData.map(async (contract) => {
+          // Get contract items
+          const { data: itemsData, error: itemsError } = await supabase
+            .from('contract_items')
+            .select('*')
+            .eq('contract_id', contract.id);
+
+          if (itemsError) throw itemsError;
+
+          // Get submissions with related data
+          const { data: submissionsData, error: submissionsError } = await supabase
+            .from('submissions')
+            .select(`
+              *,
+              attachments(*),
+              approval_history(*)
+            `)
+            .eq('contract_id', contract.id);
+
+          if (submissionsError) throw submissionsError;
+
+          return {
+            id: contract.id,
+            vendor: {
+              id: contract.vendors.id,
+              name: contract.vendors.name,
+              email: contract.vendors.email,
+              phone: contract.vendors.phone,
+              address: contract.vendors.address,
+            },
+            projectName: contract.project_name,
+            totalAmount: parseFloat(contract.total_amount),
+            startDate: contract.start_date,
+            description: contract.description,
+            status: contract.status,
+            createdAt: contract.created_at,
+            updatedAt: contract.updated_at,
+            items: itemsData.map(item => ({
+              id: item.id,
+              contractId: item.contract_id,
+              parentItemId: item.parent_item_id,
+              description: item.description,
+              quantity: item.quantity,
+              deliveredQuantity: item.delivered_quantity,
+              unitPrice: parseFloat(item.unit_price),
+              isSubitem: item.is_subitem,
+            })),
+            submissions: submissionsData.map(submission => ({
+              id: submission.id,
+              contractId: submission.contract_id,
+              vendorId: submission.vendor_id,
+              trackingNumber: submission.tracking_number,
+              submissionDate: submission.submission_date,
+              statusNotes: submission.status_notes,
+              attachments: submission.attachments.map((att: any) => ({
+                id: att.id,
+                submissionId: att.submission_id,
+                filePath: att.file_path,
+                fileType: att.file_type,
+                fileName: att.file_name,
+                uploadedAt: att.uploaded_at,
+              })),
+              approvalHistory: submission.approval_history.map((hist: any) => ({
+                id: hist.id,
+                submissionId: hist.submission_id,
+                approverLevel: hist.approver_level,
+                approverId: hist.approver_id,
+                action: hist.action,
+                changedFields: hist.changed_fields,
+                notes: hist.notes,
+                actionDate: hist.action_date,
+              })),
+            })),
+          };
+        })
+      );
+
+      return contracts;
+    } catch (error) {
+      console.error('Error fetching contracts:', error);
+      throw error;
+    }
   }
 
   async getContractById(id: string): Promise<Contract | null> {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    return this.contracts.find(c => c.id === id) || null;
+    try {
+      const { data: contractData, error: contractError } = await supabase
+        .from('contracts')
+        .select(`
+          *,
+          vendors(*)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (contractError) {
+        if (contractError.code === 'PGRST116') return null;
+        throw contractError;
+      }
+
+      // Get contract items
+      const { data: itemsData, error: itemsError } = await supabase
+        .from('contract_items')
+        .select('*')
+        .eq('contract_id', id);
+
+      if (itemsError) throw itemsError;
+
+      // Get submissions with related data
+      const { data: submissionsData, error: submissionsError } = await supabase
+        .from('submissions')
+        .select(`
+          *,
+          attachments(*),
+          approval_history(*)
+        `)
+        .eq('contract_id', id);
+
+      if (submissionsError) throw submissionsError;
+
+      return {
+        id: contractData.id,
+        vendor: {
+          id: contractData.vendors.id,
+          name: contractData.vendors.name,
+          email: contractData.vendors.email,
+          phone: contractData.vendors.phone,
+          address: contractData.vendors.address,
+        },
+        projectName: contractData.project_name,
+        totalAmount: parseFloat(contractData.total_amount),
+        startDate: contractData.start_date,
+        description: contractData.description,
+        status: contractData.status,
+        createdAt: contractData.created_at,
+        updatedAt: contractData.updated_at,
+        items: itemsData.map(item => ({
+          id: item.id,
+          contractId: item.contract_id,
+          parentItemId: item.parent_item_id,
+          description: item.description,
+          quantity: item.quantity,
+          deliveredQuantity: item.delivered_quantity,
+          unitPrice: parseFloat(item.unit_price),
+          isSubitem: item.is_subitem,
+        })),
+        submissions: submissionsData.map(submission => ({
+          id: submission.id,
+          contractId: submission.contract_id,
+          vendorId: submission.vendor_id,
+          trackingNumber: submission.tracking_number,
+          submissionDate: submission.submission_date,
+          statusNotes: submission.status_notes,
+          attachments: submission.attachments.map((att: any) => ({
+            id: att.id,
+            submissionId: att.submission_id,
+            filePath: att.file_path,
+            fileType: att.file_type,
+            fileName: att.file_name,
+            uploadedAt: att.uploaded_at,
+          })),
+          approvalHistory: submission.approval_history.map((hist: any) => ({
+            id: hist.id,
+            submissionId: hist.submission_id,
+            approverLevel: hist.approver_level,
+            approverId: hist.approver_id,
+            action: hist.action,
+            changedFields: hist.changed_fields,
+            notes: hist.notes,
+            actionDate: hist.action_date,
+          })),
+        })),
+      };
+    } catch (error) {
+      console.error('Error fetching contract:', error);
+      throw error;
+    }
   }
 
   async updateContractStatus(
@@ -192,101 +271,214 @@ class ContractAPI {
       notes?: string;
     }
   ): Promise<Contract> {
-    const contract = this.contracts.find(c => c.id === contractId);
-    if (!contract) throw new Error('Contract not found');
+    try {
+      // Start a transaction
+      const { data: contract, error: contractError } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('id', contractId)
+        .single();
 
-    const submission = contract.submissions[0];
-    if (!submission) throw new Error('No submission found');
+      if (contractError) throw contractError;
 
-    // Update contract status
-    if (updates.status) {
-      contract.status = updates.status;
-    }
+      // Update contract status if provided
+      if (updates.status) {
+        const { error: updateError } = await supabase
+          .from('contracts')
+          .update({ 
+            status: updates.status,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', contractId);
 
-    // Update submission notes
-    if (updates.statusNotes) {
-      submission.statusNotes = updates.statusNotes;
-    }
+        if (updateError) throw updateError;
+      }
 
-    // Update item quantities/prices
-    if (updates.itemUpdates) {
-      updates.itemUpdates.forEach(update => {
-        const item = contract.items.find(i => i.id === update.itemId);
-        if (item) {
-          const changedFields: Record<string, { before: any; after: any }> = {};
+      // Update contract items if provided
+      if (updates.itemUpdates) {
+        for (const itemUpdate of updates.itemUpdates) {
+          const updateData: any = {};
           
-          if (update.deliveredQuantity !== undefined && update.deliveredQuantity !== item.deliveredQuantity) {
-            changedFields['deliveredQuantity'] = { before: item.deliveredQuantity, after: update.deliveredQuantity };
-            item.deliveredQuantity = update.deliveredQuantity;
+          if (itemUpdate.deliveredQuantity !== undefined) {
+            updateData.delivered_quantity = itemUpdate.deliveredQuantity;
           }
           
-          if (update.unitPrice !== undefined && update.unitPrice !== item.unitPrice) {
-            changedFields['unitPrice'] = { before: item.unitPrice, after: update.unitPrice };
-            item.unitPrice = update.unitPrice;
+          if (itemUpdate.unitPrice !== undefined) {
+            updateData.unit_price = itemUpdate.unitPrice;
           }
 
-          // Add to approval history if there were changes
-          if (Object.keys(changedFields).length > 0) {
-            submission.approvalHistory.push({
-              id: `HIST-${Date.now()}`,
-              submissionId: submission.id,
-              approverLevel: updates.approverLevel || 1,
-              approverId: updates.approverId || 'USER-UNKNOWN',
-              action: 'modified',
-              changedFields,
-              notes: updates.notes,
-              actionDate: new Date().toISOString()
-            });
+          if (Object.keys(updateData).length > 0) {
+            updateData.updated_at = new Date().toISOString();
+            
+            const { error: itemUpdateError } = await supabase
+              .from('contract_items')
+              .update(updateData)
+              .eq('id', itemUpdate.itemId);
+
+            if (itemUpdateError) throw itemUpdateError;
           }
         }
-      });
+      }
+
+      // Get submission for approval history
+      const { data: submission, error: submissionError } = await supabase
+        .from('submissions')
+        .select('id')
+        .eq('contract_id', contractId)
+        .limit(1)
+        .single();
+
+      if (submissionError && submissionError.code !== 'PGRST116') throw submissionError;
+
+      // Add approval history entries
+      if (submission && (updates.itemUpdates || updates.status) && updates.approverLevel) {
+        const historyData: any = {
+          submission_id: submission.id,
+          approver_level: updates.approverLevel,
+          approver_id: updates.approverId || 'USER-UNKNOWN',
+          action: updates.status === 'rejected' ? 'rejected' : 
+                  updates.itemUpdates ? 'modified' : 'approved',
+          notes: updates.notes,
+          action_date: new Date().toISOString()
+        };
+
+        // Add changed fields for item updates
+        if (updates.itemUpdates) {
+          const changedFields: Record<string, { before: any; after: any }> = {};
+          updates.itemUpdates.forEach(update => {
+            if (update.deliveredQuantity !== undefined) {
+              changedFields['deliveredQuantity'] = { 
+                before: 'unknown', 
+                after: update.deliveredQuantity 
+              };
+            }
+            if (update.unitPrice !== undefined) {
+              changedFields['unitPrice'] = { 
+                before: 'unknown', 
+                after: update.unitPrice 
+              };
+            }
+          });
+          historyData.changed_fields = changedFields;
+        }
+
+        const { error: historyError } = await supabase
+          .from('approval_history')
+          .insert(historyData);
+
+        if (historyError) throw historyError;
+      }
+
+      // Update submission status notes if provided
+      if (updates.statusNotes && submission) {
+        const { error: submissionUpdateError } = await supabase
+          .from('submissions')
+          .update({ 
+            status_notes: updates.statusNotes,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', submission.id);
+
+        if (submissionUpdateError) throw submissionUpdateError;
+      }
+
+      // Recalculate total amount
+      const { data: items, error: itemsError } = await supabase
+        .from('contract_items')
+        .select('delivered_quantity, unit_price')
+        .eq('contract_id', contractId);
+
+      if (itemsError) throw itemsError;
+
+      const totalAmount = items.reduce((total, item) => 
+        total + (item.delivered_quantity * parseFloat(item.unit_price)), 0
+      );
+
+      // Update contract total
+      const { error: totalUpdateError } = await supabase
+        .from('contracts')
+        .update({ 
+          total_amount: totalAmount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', contractId);
+
+      if (totalUpdateError) throw totalUpdateError;
+
+      // Return updated contract
+      const updatedContract = await this.getContractById(contractId);
+      if (!updatedContract) throw new Error('Contract not found after update');
+      
+      console.log('Contract updated:', updatedContract);
+      return updatedContract;
+    } catch (error) {
+      console.error('Error updating contract:', error);
+      throw error;
     }
-
-    // Add approval history entry for status changes
-    if (updates.status && updates.approverLevel) {
-      submission.approvalHistory.push({
-        id: `HIST-${Date.now()}-STATUS`,
-        submissionId: submission.id,
-        approverLevel: updates.approverLevel,
-        approverId: updates.approverId || 'USER-UNKNOWN',
-        action: updates.status === 'rejected' ? 'rejected' : 'approved',
-        notes: updates.notes,
-        actionDate: new Date().toISOString()
-      });
-    }
-
-    // Recalculate total amount
-    contract.totalAmount = contract.items.reduce((total, item) => 
-      total + (item.deliveredQuantity * item.unitPrice), 0
-    );
-
-    contract.updatedAt = new Date().toISOString();
-
-    await new Promise(resolve => setTimeout(resolve, 500));
-    console.log('Contract updated:', contract);
-    return contract;
   }
 
   async createContract(contractData: Omit<Contract, 'id' | 'createdAt' | 'updatedAt' | 'submissions'>): Promise<Contract> {
-    const newContract: Contract = {
-      ...contractData,
-      id: `CONTRACT-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      submissions: []
-    };
+    try {
+      // Create contract
+      const { data: newContract, error: contractError } = await supabase
+        .from('contracts')
+        .insert({
+          vendor_id: contractData.vendor.id,
+          project_name: contractData.projectName,
+          total_amount: contractData.totalAmount,
+          start_date: contractData.startDate,
+          description: contractData.description,
+          status: contractData.status
+        })
+        .select()
+        .single();
 
-    this.contracts.push(newContract);
-    
-    await new Promise(resolve => setTimeout(resolve, 500));
-    console.log('Contract created:', newContract);
-    return newContract;
+      if (contractError) throw contractError;
+
+      // Create contract items
+      if (contractData.items.length > 0) {
+        const itemsToInsert = contractData.items.map(item => ({
+          contract_id: newContract.id,
+          parent_item_id: item.parentItemId,
+          description: item.description,
+          quantity: item.quantity,
+          delivered_quantity: item.deliveredQuantity,
+          unit_price: item.unitPrice,
+          is_subitem: item.isSubitem
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('contract_items')
+          .insert(itemsToInsert);
+
+        if (itemsError) throw itemsError;
+      }
+
+      const createdContract = await this.getContractById(newContract.id);
+      if (!createdContract) throw new Error('Contract not found after creation');
+      
+      console.log('Contract created:', createdContract);
+      return createdContract;
+    } catch (error) {
+      console.error('Error creating contract:', error);
+      throw error;
+    }
   }
 
-  generateTrackingNumber(): string {
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const sequence = String(Date.now()).slice(-3);
-    return `TRK-${date}-${sequence}`;
+  async generateTrackingNumber(): Promise<string> {
+    try {
+      const { data, error } = await supabase.rpc('generate_tracking_number');
+      
+      if (error) throw error;
+      
+      return data;
+    } catch (error) {
+      console.error('Error generating tracking number:', error);
+      // Fallback to client-side generation
+      const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const sequence = String(Date.now()).slice(-3);
+      return `TRK-${date}-${sequence}`;
+    }
   }
 }
 

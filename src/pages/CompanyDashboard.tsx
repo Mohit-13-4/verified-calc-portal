@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +18,13 @@ import {
 
 interface Contract {
   id: string;
-  vendor: string;
+  vendor: {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
   projectName: string;
   totalAmount: number;
   startDate: string;
@@ -65,6 +70,7 @@ const CompanyDashboard = () => {
       const data = await contractAPI.getContracts();
       setContracts(data);
     } catch (error) {
+      console.error('Error loading contracts:', error);
       toast({
         title: "Error",
         description: "Failed to load contracts. Please try again.",
