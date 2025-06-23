@@ -1,10 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import SubmissionCard from '../components/SubmissionCard';
+import ContractCard from '../components/ContractCard';
+import { contractAPI } from '../services/contractAPI';
 import { useToast } from "@/hooks/use-toast";
 import { 
   CheckCircle,
@@ -12,104 +13,127 @@ import {
   TrendingUp,
   Users,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  Package
 } from 'lucide-react';
 
-// Mock data for company dashboard
-const dashboardStats = {
-  pendingReviews: 8,
-  completedToday: 12,
-  totalActive: 25,
-  erpReady: 89
-};
-
-// Mock submissions data
-const mockSubmissions = [
-  {
-    id: 'SUB-001',
-    vendor: 'ABC Manufacturing',
-    formula: 'Material Cost Analysis',
-    status: 'pending' as const,
-    submittedAt: '2024-01-20 09:30',
-    description: 'Quarterly material cost calculation for Project Alpha including raw materials, labor, and overhead costs.',
-    values: { Block1: 15000, Block2: 8500, Block3: 2200 },
-    result: 25700,
-    erpReady: false
-  },
-  {
-    id: 'SUB-002',
-    vendor: 'XYZ Corp',
-    formula: 'Project Budget Estimation',
-    status: 'l1_reviewed' as const,
-    submittedAt: '2024-01-20 08:15',
-    description: 'Annual project budget estimation for infrastructure development with markup calculations.',
-    values: { Block1: 85000, Block2: 12500, Block3: 3200 },
-    result: 100700,
-    erpReady: false
-  },
-  {
-    id: 'SUB-003',
-    vendor: 'TechSolutions Ltd',
-    formula: 'Revenue Projection',
-    status: 'l2_reviewed' as const,
-    submittedAt: '2024-01-19 16:45',
-    description: 'Q1 revenue projection based on growth factors and market analysis.',
-    values: { Block1: 45000, Block2: 1.15, Block3: 5500 },
-    result: 57250,
-    erpReady: false
-  },
-  {
-    id: 'SUB-004',
-    vendor: 'Global Industries',
-    formula: 'Material Cost Analysis',
-    status: 'approved' as const,
-    submittedAt: '2024-01-19 11:20',
-    description: 'Monthly material cost analysis for production line optimization.',
-    values: { Block1: 32000, Block2: 15600, Block3: 4200 },
-    result: 51800,
-    erpReady: true
-  }
-];
+interface Contract {
+  id: string;
+  vendor: string;
+  projectName: string;
+  totalAmount: number;
+  startDate: string;
+  description: string;
+  status: 'draft' | 'submitted' | 'l1_review' | 'l2_review' | 'approved' | 'rejected';
+  createdAt: string;
+  updatedAt: string;
+  items: Array<{
+    id: string;
+    description: string;
+    quantity: number;
+    deliveredQuantity: number;
+    unitPrice: number;
+  }>;
+  submissions: Array<{
+    statusNotes?: string;
+    approvalHistory: Array<{
+      approverLevel: 1 | 2 | 3;
+      action: string;
+      notes?: string;
+      actionDate: string;
+      changedFields?: Record<string, { before: any; after: any }>;
+    }>;
+  }>;
+}
 
 const CompanyDashboard = () => {
   const [activeTab, setActiveTab] = useState('pending');
-  const [submissions, setSubmissions] = useState(mockSubmissions);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   // Get current user role from auth context (mock for now)
-  const userRole = 'level1' as 'level1' | 'level2' | 'level3'; // This would come from authentication
+  const userRole = 'level1' as 'level1' | 'level2' | 'level3';
 
-  const handleStatusChange = (submissionId: string, newStatus: string) => {
-    setSubmissions(prev => 
-      prev.map(sub => 
-        sub.id === submissionId 
-          ? { ...sub, status: newStatus as any, erpReady: newStatus === 'approved' }
-          : sub
-      )
-    );
-  };
+  useEffect(() => {
+    loadContracts();
+  }, []);
 
-  const getFilteredSubmissions = (filter: string) => {
-    switch (filter) {
-      case 'pending':
-        return submissions.filter(sub => sub.status === 'pending');
-      case 'reviewing':
-        return submissions.filter(sub => ['l1_reviewed', 'l2_reviewed'].includes(sub.status));
-      case 'approved':
-        return submissions.filter(sub => sub.status === 'approved');
-      case 'all':
-      default:
-        return submissions;
+  const loadContracts = async () => {
+    try {
+      setLoading(true);
+      const data = await contractAPI.getContracts();
+      setContracts(data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load contracts. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleStatusChange = (contractId: string, newStatus: string) => {
+    setContracts(prev => 
+      prev.map(contract => 
+        contract.id === contractId 
+          ? { ...contract, status: newStatus as any }
+          : contract
+      )
+    );
+    // Reload contracts to get updated data
+    loadContracts();
+  };
+
+  const getFilteredContracts = (filter: string) => {
+    switch (filter) {
+      case 'pending':
+        return contracts.filter(contract => contract.status === 'submitted');
+      case 'reviewing':
+        return contracts.filter(contract => ['l1_review', 'l2_review'].includes(contract.status));
+      case 'approved':
+        return contracts.filter(contract => contract.status === 'approved');
+      case 'all':
+      default:
+        return contracts;
+    }
+  };
+
+  const getDashboardStats = () => {
+    const pending = contracts.filter(c => c.status === 'submitted').length;
+    const completed = contracts.filter(c => c.status === 'approved').length;
+    const totalActive = contracts.filter(c => !['approved', 'rejected'].includes(c.status)).length;
+    const totalValue = contracts
+      .filter(c => c.status === 'approved')
+      .reduce((sum, c) => sum + c.totalAmount, 0);
+
+    return { pending, completed, totalActive, totalValue };
+  };
+
+  const stats = getDashboardStats();
+
+  if (loading) {
+    return (
+      <Layout title="Contract Management">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <Clock className="mx-auto h-8 w-8 text-gray-400 animate-spin" />
+            <p className="mt-2 text-gray-600">Loading contracts...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
-    <Layout title="Company Dashboard">
+    <Layout title="Contract Management">
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Review Dashboard</h2>
-          <p className="text-gray-600">Multi-level verification system for vendor calculations</p>
+          <h2 className="text-2xl font-bold text-gray-900">Contract Management Dashboard</h2>
+          <p className="text-gray-600">Multi-level approval system for vendor contracts and deliveries</p>
         </div>
 
         {/* Stats Overview */}
@@ -119,8 +143,8 @@ const CompanyDashboard = () => {
               <div className="flex items-center">
                 <Clock className="h-8 w-8 text-yellow-600" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Pending Reviews</p>
-                  <p className="text-2xl font-bold text-gray-900">{dashboardStats.pendingReviews}</p>
+                  <p className="text-sm font-medium text-gray-600">Pending Review</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
                 </div>
               </div>
             </CardContent>
@@ -131,8 +155,8 @@ const CompanyDashboard = () => {
               <div className="flex items-center">
                 <CheckCircle className="h-8 w-8 text-green-600" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Completed Today</p>
-                  <p className="text-2xl font-bold text-gray-900">{dashboardStats.completedToday}</p>
+                  <p className="text-sm font-medium text-gray-600">Approved</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.completed}</p>
                 </div>
               </div>
             </CardContent>
@@ -141,10 +165,10 @@ const CompanyDashboard = () => {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
-                <TrendingUp className="h-8 w-8 text-blue-600" />
+                <Package className="h-8 w-8 text-blue-600" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Active</p>
-                  <p className="text-2xl font-bold text-gray-900">{dashboardStats.totalActive}</p>
+                  <p className="text-sm font-medium text-gray-600">Active Contracts</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalActive}</p>
                 </div>
               </div>
             </CardContent>
@@ -153,10 +177,10 @@ const CompanyDashboard = () => {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
-                <FileText className="h-8 w-8 text-purple-600" />
+                <TrendingUp className="h-8 w-8 text-purple-600" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">ERP Ready</p>
-                  <p className="text-2xl font-bold text-gray-900">{dashboardStats.erpReady}</p>
+                  <p className="text-sm font-medium text-gray-600">Approved Value</p>
+                  <p className="text-2xl font-bold text-gray-900">${stats.totalValue.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -166,27 +190,27 @@ const CompanyDashboard = () => {
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="pending">Pending ({getFilteredSubmissions('pending').length})</TabsTrigger>
-            <TabsTrigger value="reviewing">In Review ({getFilteredSubmissions('reviewing').length})</TabsTrigger>
-            <TabsTrigger value="approved">Approved ({getFilteredSubmissions('approved').length})</TabsTrigger>
-            <TabsTrigger value="all">All Submissions</TabsTrigger>
+            <TabsTrigger value="pending">Pending ({getFilteredContracts('pending').length})</TabsTrigger>
+            <TabsTrigger value="reviewing">In Review ({getFilteredContracts('reviewing').length})</TabsTrigger>
+            <TabsTrigger value="approved">Approved ({getFilteredContracts('approved').length})</TabsTrigger>
+            <TabsTrigger value="all">All Contracts</TabsTrigger>
           </TabsList>
 
           {/* Pending Tab */}
           <TabsContent value="pending" className="space-y-4">
-            {getFilteredSubmissions('pending').length === 0 ? (
+            {getFilteredContracts('pending').length === 0 ? (
               <Card>
                 <CardContent className="p-8 text-center">
                   <Clock className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Pending Submissions</h3>
-                  <p className="text-gray-600">All submissions have been reviewed or are in progress.</p>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Pending Contracts</h3>
+                  <p className="text-gray-600">All contracts have been reviewed or are in progress.</p>
                 </CardContent>
               </Card>
             ) : (
-              getFilteredSubmissions('pending').map((submission) => (
-                <SubmissionCard
-                  key={submission.id}
-                  submission={submission}
+              getFilteredContracts('pending').map((contract) => (
+                <ContractCard
+                  key={contract.id}
+                  contract={contract}
                   userRole={userRole}
                   onStatusChange={handleStatusChange}
                 />
@@ -196,10 +220,10 @@ const CompanyDashboard = () => {
 
           {/* In Review Tab */}
           <TabsContent value="reviewing" className="space-y-4">
-            {getFilteredSubmissions('reviewing').map((submission) => (
-              <SubmissionCard
-                key={submission.id}
-                submission={submission}
+            {getFilteredContracts('reviewing').map((contract) => (
+              <ContractCard
+                key={contract.id}
+                contract={contract}
                 userRole={userRole}
                 onStatusChange={handleStatusChange}
               />
@@ -208,22 +232,22 @@ const CompanyDashboard = () => {
 
           {/* Approved Tab */}
           <TabsContent value="approved" className="space-y-4">
-            {getFilteredSubmissions('approved').map((submission) => (
-              <SubmissionCard
-                key={submission.id}
-                submission={submission}
+            {getFilteredContracts('approved').map((contract) => (
+              <ContractCard
+                key={contract.id}
+                contract={contract}
                 userRole={userRole}
                 onStatusChange={handleStatusChange}
               />
             ))}
           </TabsContent>
 
-          {/* All Submissions Tab */}
+          {/* All Contracts Tab */}
           <TabsContent value="all" className="space-y-4">
-            {getFilteredSubmissions('all').map((submission) => (
-              <SubmissionCard
-                key={submission.id}
-                submission={submission}
+            {getFilteredContracts('all').map((contract) => (
+              <ContractCard
+                key={contract.id}
+                contract={contract}
                 userRole={userRole}
                 onStatusChange={handleStatusChange}
               />
