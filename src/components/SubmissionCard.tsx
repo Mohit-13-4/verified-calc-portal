@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import RejectionDialog from './RejectionDialog';
 import ValueEditDialog from './ValueEditDialog';
+import ApprovalTimeline from './ApprovalTimeline';
 import { workflowAPI } from '../services/workflowAPI';
 import { 
   CheckCircle,
@@ -14,7 +16,10 @@ import {
   AlertTriangle,
   Download,
   Edit,
-  MessageSquare
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+  History
 } from 'lucide-react';
 
 interface Submission {
@@ -56,6 +61,7 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
   const [loading, setLoading] = useState(false);
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
   const [showValueEditDialog, setShowValueEditDialog] = useState(false);
+  const [showApprovalTimeline, setShowApprovalTimeline] = useState(false);
   const { toast } = useToast();
 
   const getStatusConfig = (status: string) => {
@@ -283,6 +289,48 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
   const StatusIcon = getStatusConfig(submission.status).icon;
   const canEdit = canApprove() && submission.status !== 'approved' && submission.status !== 'rejected';
 
+  // Mock approval timeline data - replace with real data from backend
+  const mockApprovalSteps = [
+    {
+      level: 1,
+      approverName: 'Rajesh Kumar (Site Engineer)',
+      timestamp: '2025-06-25T09:30:00Z',
+      status: 'approved' as const,
+      comment: 'Measurements verified on-site. Length adjusted after re-measurement.',
+      changedValues: {
+        'Block1': { before: 10.0, after: 10.2 }
+      }
+    },
+    {
+      level: 2,
+      approverName: 'Arvind Thakur (Project Manager)',
+      timestamp: '2025-06-25T11:32:00Z',
+      status: 'modified' as const,
+      comment: 'Revised after post-pour inspection of slab thickness. Depth corrected as per revised site layout.',
+      changedValues: {
+        'Block2': { before: 1.50, after: 1.65 },
+        'Block3': { before: 2.00, after: 2.10 }
+      }
+    },
+    {
+      level: 3,
+      approverName: 'Dr. Priya Sharma (Chief Engineer)',
+      timestamp: '',
+      status: 'pending' as const,
+      comment: ''
+    }
+  ];
+
+  const getCurrentLevel = () => {
+    switch (submission.status) {
+      case 'pending': return 0;
+      case 'l1_reviewed': return 1;
+      case 'l2_reviewed': return 2;
+      case 'approved': return 3;
+      default: return 0;
+    }
+  };
+
   return (
     <>
       <Card className="w-full">
@@ -340,6 +388,32 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
 
           {/* Value Comparison */}
           {renderValueComparison()}
+
+          {/* Approval Timeline */}
+          <Collapsible open={showApprovalTimeline} onOpenChange={setShowApprovalTimeline}>
+            <CollapsibleTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="w-full flex items-center justify-between"
+              >
+                <div className="flex items-center space-x-2">
+                  <History className="h-4 w-4" />
+                  <span>Approval Timeline</span>
+                </div>
+                {showApprovalTimeline ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-4">
+              <ApprovalTimeline 
+                steps={mockApprovalSteps}
+                currentLevel={getCurrentLevel()}
+              />
+            </CollapsibleContent>
+          </Collapsible>
 
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="flex space-x-2">

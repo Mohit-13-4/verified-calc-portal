@@ -9,8 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calculator, Save, Upload, FileText, X } from 'lucide-react';
+import { ArrowLeft, Calculator, Save, Upload, FileText, X, HelpCircle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { evaluate } from 'mathjs';
 
 const predefinedFormulas = [
@@ -20,9 +21,9 @@ const predefinedFormulas = [
     expression: 'Block1 * Block2 * Block3',
     description: 'Calculate concrete volume using length, breadth, and height',
     blocks: [
-      { name: 'Length' },
-      { name: 'Breadth' },
-      { name: 'Height' }
+      { name: 'Length', description: 'Length in meters measured on site from end to end' },
+      { name: 'Breadth', description: 'Width between shuttering faces in meters' },
+      { name: 'Height', description: 'Concrete depth from base to top surface in meters' }
     ]
   },
   {
@@ -31,9 +32,9 @@ const predefinedFormulas = [
     expression: 'Block1 + Block2 + Block3',
     description: 'Standard material cost calculation including labor and overhead',
     blocks: [
-      { name: 'Material Cost' },
-      { name: 'Labor Cost' },
-      { name: 'Overhead' }
+      { name: 'Material Cost', description: 'Total cost of raw materials including transport' },
+      { name: 'Labor Cost', description: 'Manpower cost including skilled and unskilled workers' },
+      { name: 'Overhead', description: 'Administrative and indirect costs' }
     ]
   },
   {
@@ -42,9 +43,9 @@ const predefinedFormulas = [
     expression: '(Block1 * Block2) + Block3',
     description: 'Project budget with markup and fixed costs',
     blocks: [
-      { name: 'Direct Costs' },
-      { name: 'Markup Factor' },
-      { name: 'Fixed Costs' }
+      { name: 'Direct Costs', description: 'Direct project expenses including materials and labor' },
+      { name: 'Markup Factor', description: 'Profit margin multiplier (e.g., 1.2 for 20% markup)' },
+      { name: 'Fixed Costs', description: 'One-time setup and equipment costs' }
     ]
   },
   {
@@ -53,10 +54,10 @@ const predefinedFormulas = [
     expression: 'Block1 * Block2 * Block3 - Block4',
     description: 'Calculate excavation area with depth adjustment',
     blocks: [
-      { name: 'Length' },
-      { name: 'Width' },
-      { name: 'Depth' },
-      { name: 'Exclusion Area' }
+      { name: 'Length', description: 'Excavation length as per site survey in meters' },
+      { name: 'Width', description: 'Excavation width including working space in meters' },
+      { name: 'Depth', description: 'Required excavation depth below ground level in meters' },
+      { name: 'Exclusion Area', description: 'Areas to exclude like existing structures in cubic meters' }
     ]
   }
 ];
@@ -171,9 +172,16 @@ const CalculationForm = () => {
     return block ? block.name : `Block ${blockIndex + 1}`;
   };
 
+  const getFieldDescription = (blockIndex: number) => {
+    if (!currentFormula) return '';
+    const block = currentFormula.blocks[blockIndex];
+    return block ? block.description : '';
+  };
+
   return (
-    <Layout title="New Calculation">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <TooltipProvider>
+      <Layout title="New Calculation">
+        <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center space-x-4">
           <Button 
@@ -279,9 +287,22 @@ const CalculationForm = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {currentFormula.blocks.map((block, index) => {
                     const blockKey = `Block${index + 1}`;
+                    const fieldDescription = getFieldDescription(index);
                     return (
                       <div key={blockKey}>
-                        <Label htmlFor={blockKey}>{getFieldLabel(index)}</Label>
+                        <div className="flex items-center space-x-2">
+                          <Label htmlFor={blockKey}>{getFieldLabel(index)}</Label>
+                          {fieldDescription && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="max-w-xs text-sm">{fieldDescription}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
                         <Input
                           id={blockKey}
                           type="number"
@@ -412,8 +433,9 @@ const CalculationForm = () => {
             </div>
           )}
         </form>
-      </div>
-    </Layout>
+        </div>
+      </Layout>
+    </TooltipProvider>
   );
 };
 
