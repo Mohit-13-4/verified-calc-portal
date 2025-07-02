@@ -59,14 +59,14 @@ const AdminDashboard = () => {
     description: '',
     formula: '',
     blocks: {
-      Block1: { name: '', unit: '' },
-      Block2: { name: '', unit: '' },
-      Block3: { name: '', unit: '' },
-      Block4: { name: '', unit: '' },
-      Block5: { name: '', unit: '' },
-      Block6: { name: '', unit: '' },
-      Block7: { name: '', unit: '' },
-      Block8: { name: '', unit: '' }
+      Block1: { name: '' },
+      Block2: { name: '' },
+      Block3: { name: '' },
+      Block4: { name: '' },
+      Block5: { name: '' },
+      Block6: { name: '' },
+      Block7: { name: '' },
+      Block8: { name: '' }
     }
   });
 
@@ -98,14 +98,14 @@ const AdminDashboard = () => {
         description: '',
         formula: '',
         blocks: {
-          Block1: { name: '', unit: '' },
-          Block2: { name: '', unit: '' },
-          Block3: { name: '', unit: '' },
-          Block4: { name: '', unit: '' },
-          Block5: { name: '', unit: '' },
-          Block6: { name: '', unit: '' },
-          Block7: { name: '', unit: '' },
-          Block8: { name: '', unit: '' }
+          Block1: { name: '' },
+          Block2: { name: '' },
+          Block3: { name: '' },
+          Block4: { name: '' },
+          Block5: { name: '' },
+          Block6: { name: '' },
+          Block7: { name: '' },
+          Block8: { name: '' }
         }
       });
       setIsAddFormulaOpen(false);
@@ -515,30 +515,17 @@ const AdminDashboard = () => {
                             {Object.entries(formulaData.blocks).map(([blockKey, block]) => (
                               <div key={blockKey} className="border p-3 rounded-lg">
                                 <h5 className="font-medium text-sm text-gray-700 mb-2">{blockKey}</h5>
-                                <div className="space-y-2">
-                                  <Input
-                                    placeholder="Block name"
-                                    value={block.name}
-                                    onChange={(e) => setFormulaData({
-                                      ...formulaData,
-                                      blocks: {
-                                        ...formulaData.blocks,
-                                        [blockKey]: { ...block, name: e.target.value }
-                                      }
-                                    })}
-                                  />
-                                  <Input
-                                    placeholder="Unit (e.g., kg, $, %)"
-                                    value={block.unit}
-                                    onChange={(e) => setFormulaData({
-                                      ...formulaData,
-                                      blocks: {
-                                        ...formulaData.blocks,
-                                        [blockKey]: { ...block, unit: e.target.value }
-                                      }
-                                    })}
-                                  />
-                                </div>
+                                <Input
+                                  placeholder="Block name"
+                                  value={block.name}
+                                  onChange={(e) => setFormulaData({
+                                    ...formulaData,
+                                    blocks: {
+                                      ...formulaData.blocks,
+                                      [blockKey]: { ...block, name: e.target.value }
+                                    }
+                                  })}
+                                />
                               </div>
                             ))}
                           </div>
