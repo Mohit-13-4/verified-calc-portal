@@ -12,11 +12,9 @@ import { formatINR } from '../utils/currency';
 interface Submission {
   id: string;
   trackingNumber: string;
-  vendor: string;
   projectName: string;
   submissionDate: string;
-  submittedAt: string;
-  status: 'pending' | 'l1_reviewed' | 'l2_reviewed' | 'approved' | 'rejected';
+  status: 'draft' | 'submitted' | 'reviewed' | 'validated' | 'approved' | 'rejected';
   totalAmount: number;
   completionPercentage: number;
   formula: string;
@@ -26,7 +24,6 @@ interface Submission {
   invoicePercentage?: number;
   invoiceAmount?: number;
   invoiceStatus?: 'none' | 'requested' | 'approved' | 'paid';
-  erpReady: boolean;
 }
 
 const VendorDashboard: React.FC = () => {
@@ -36,10 +33,8 @@ const VendorDashboard: React.FC = () => {
     {
       id: '1',
       trackingNumber: 'CALC-001',
-      vendor: 'ABC Construction Ltd',
       projectName: 'Highway Construction Phase 1',
       submissionDate: '2025-01-03',
-      submittedAt: '2025-01-03',
       status: 'approved',
       totalAmount: 2500000,
       completionPercentage: 100,
@@ -49,17 +44,14 @@ const VendorDashboard: React.FC = () => {
       description: 'Complete material cost analysis for Q4 construction work',
       invoicePercentage: 100,
       invoiceAmount: 2500000,
-      invoiceStatus: 'approved',
-      erpReady: true
+      invoiceStatus: 'approved'
     },
     {
       id: '2',
       trackingNumber: 'CALC-002',
-      vendor: 'ABC Construction Ltd',
       projectName: 'Bridge Foundation Work',
       submissionDate: '2025-01-02',
-      submittedAt: '2025-01-02',
-      status: 'l2_reviewed',
+      status: 'validated',
       totalAmount: 1800000,
       completionPercentage: 85,
       formula: 'Concrete Volume × Rate + Steel Weight × Rate',
@@ -68,17 +60,14 @@ const VendorDashboard: React.FC = () => {
       description: 'Foundation concrete and steel reinforcement calculations',
       invoicePercentage: 75,
       invoiceAmount: 1350000,
-      invoiceStatus: 'requested',
-      erpReady: false
+      invoiceStatus: 'requested'
     },
     {
       id: '3',
       trackingNumber: 'CALC-003',
-      vendor: 'ABC Construction Ltd',
       projectName: 'Residential Complex - Block A',
       submissionDate: '2025-01-01',
-      submittedAt: '2025-01-01',
-      status: 'l1_reviewed',
+      status: 'reviewed',
       totalAmount: 3200000,
       completionPercentage: 60,
       formula: 'Built-up Area × Rate per sq.ft',
@@ -87,17 +76,14 @@ const VendorDashboard: React.FC = () => {
       description: 'Residential building construction cost estimation',
       invoicePercentage: 0,
       invoiceAmount: 0,
-      invoiceStatus: 'none',
-      erpReady: false
+      invoiceStatus: 'none'
     },
     {
       id: '4',
       trackingNumber: 'CALC-004',
-      vendor: 'ABC Construction Ltd',
       projectName: 'Water Treatment Plant',
       submissionDate: '2024-12-30',
-      submittedAt: '2024-12-30',
-      status: 'pending',
+      status: 'submitted',
       totalAmount: 4500000,
       completionPercentage: 40,
       formula: 'Equipment Cost + Installation + Civil Work',
@@ -106,16 +92,16 @@ const VendorDashboard: React.FC = () => {
       description: 'Water treatment facility construction and equipment installation',
       invoicePercentage: 0,
       invoiceAmount: 0,
-      invoiceStatus: 'none',
-      erpReady: false
+      invoiceStatus: 'none'
     }
   ]);
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      pending: { color: 'bg-yellow-500', text: 'Pending' },
-      l1_reviewed: { color: 'bg-blue-500', text: 'Reviewed' },
-      l2_reviewed: { color: 'bg-purple-500', text: 'Validated' },
+      draft: { color: 'bg-gray-500', text: 'Draft' },
+      submitted: { color: 'bg-blue-500', text: 'Submitted' },
+      reviewed: { color: 'bg-yellow-500', text: 'Reviewed' },
+      validated: { color: 'bg-purple-500', text: 'Validated' },
       approved: { color: 'bg-green-500', text: 'Approved' },
       rejected: { color: 'bg-red-500', text: 'Rejected' }
     };
@@ -132,9 +118,7 @@ const VendorDashboard: React.FC = () => {
     switch (status) {
       case 'approved': return <CheckCircle className="h-4 w-4 text-green-600" />;
       case 'rejected': return <AlertCircle className="h-4 w-4 text-red-600" />;
-      case 'pending': return <Clock className="h-4 w-4 text-yellow-600" />;
-      case 'l1_reviewed': return <CheckCircle className="h-4 w-4 text-blue-600" />;
-      case 'l2_reviewed': return <CheckCircle className="h-4 w-4 text-purple-600" />;
+      case 'submitted': return <Clock className="h-4 w-4 text-blue-600" />;
       default: return <FileText className="h-4 w-4 text-gray-600" />;
     }
   };
@@ -319,12 +303,10 @@ const VendorDashboard: React.FC = () => {
       {selectedSubmission && (
         <SubmissionDetailsDialog
           submission={selectedSubmission}
-          open={!!selectedSubmission}
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedSubmission(null);
-              setShowInvoiceDialog(false);
-            }
+          isOpen={!!selectedSubmission}
+          onClose={() => {
+            setSelectedSubmission(null);
+            setShowInvoiceDialog(false);
           }}
         />
       )}

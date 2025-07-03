@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,106 +22,70 @@ import { formatINR } from '../utils/currency';
 interface Submission {
   id: string;
   trackingNumber: string;
-  vendor: string;
   vendorName: string;
   projectName: string;
   submissionDate: string;
-  submittedAt: string;
-  status: 'pending' | 'l1_reviewed' | 'l2_reviewed' | 'approved' | 'rejected';
+  status: 'submitted' | 'reviewed' | 'validated' | 'approved' | 'rejected';
   totalAmount: number;
   completionPercentage: number;
   description: string;
-  formula: string;
-  values: Record<string, number>;
-  result: number;
-  erpReady: boolean;
 }
 
 const mockSubmissions: Submission[] = [
   {
     id: '1',
     trackingNumber: 'CALC-001',
-    vendor: 'ABC Construction Ltd',
     vendorName: 'ABC Construction Ltd',
     projectName: 'Highway Construction Phase 1',
     submissionDate: '2025-01-05',
-    submittedAt: '2025-01-05',
     status: 'approved',
     totalAmount: 2500000,
     completionPercentage: 100,
-    description: 'Complete material cost analysis for Q4 construction work',
-    formula: 'Material Cost + Labor + Overhead',
-    values: { Block1: 10.5, Block2: 8.2, Block3: 6.0 },
-    result: 2500000,
-    erpReady: true
+    description: 'Complete material cost analysis for Q4 construction work'
   },
   {
     id: '2',
     trackingNumber: 'CALC-002',
-    vendor: 'XYZ Builders',
     vendorName: 'XYZ Builders',
     projectName: 'Bridge Foundation Work',
     submissionDate: '2025-01-04',
-    submittedAt: '2025-01-04',
-    status: 'l2_reviewed',
+    status: 'validated',
     totalAmount: 1800000,
     completionPercentage: 85,
-    description: 'Foundation concrete and steel reinforcement calculations',
-    formula: 'Concrete Volume × Rate + Steel Weight × Rate',
-    values: { ConcreteVolume: 450, SteelWeight: 12.5 },
-    result: 1800000,
-    erpReady: false
+    description: 'Foundation concrete and steel reinforcement calculations'
   },
   {
     id: '3',
     trackingNumber: 'CALC-003',
-    vendor: 'PQR Infra',
     vendorName: 'PQR Infra',
     projectName: 'Residential Complex - Block A',
     submissionDate: '2025-01-03',
-    submittedAt: '2025-01-03',
-    status: 'l1_reviewed',
+    status: 'reviewed',
     totalAmount: 3200000,
     completionPercentage: 60,
-    description: 'Residential building construction cost estimation',
-    formula: 'Built-up Area × Rate per sq.ft',
-    values: { BuiltUpArea: 8000, RatePerSqFt: 400 },
-    result: 3200000,
-    erpReady: false
+    description: 'Residential building construction cost estimation'
   },
   {
     id: '4',
     trackingNumber: 'CALC-004',
-    vendor: 'LMN Projects',
     vendorName: 'LMN Projects',
     projectName: 'Water Treatment Plant',
     submissionDate: '2025-01-02',
-    submittedAt: '2025-01-02',
-    status: 'pending',
+    status: 'submitted',
     totalAmount: 4500000,
     completionPercentage: 40,
-    description: 'Water treatment facility construction and equipment installation',
-    formula: 'Equipment Cost + Installation + Civil Work',
-    values: { Equipment: 2800000, Installation: 900000, CivilWork: 800000 },
-    result: 4500000,
-    erpReady: false
+    description: 'Water treatment facility construction and equipment installation'
   },
   {
     id: '5',
     trackingNumber: 'CALC-005',
-    vendor: 'RST Enterprises',
     vendorName: 'RST Enterprises',
     projectName: 'Commercial Complex - Tower B',
     submissionDate: '2025-01-01',
-    submittedAt: '2025-01-01',
-    status: 'pending',
+    status: 'submitted',
     totalAmount: 5800000,
     completionPercentage: 25,
-    description: 'Commercial building structural design and cost analysis',
-    formula: 'Structural Steel + Concrete + Labor',
-    values: { StructuralSteel: 2500000, Concrete: 2000000, Labor: 1300000 },
-    result: 5800000,
-    erpReady: false
+    description: 'Commercial building structural design and cost analysis'
   }
 ];
 
@@ -138,9 +101,9 @@ const CompanyDashboard: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      pending: { color: 'bg-yellow-500', text: 'Pending' },
-      l1_reviewed: { color: 'bg-blue-500', text: 'Reviewed' },
-      l2_reviewed: { color: 'bg-purple-500', text: 'Validated' },
+      submitted: { color: 'bg-blue-500', text: 'Submitted' },
+      reviewed: { color: 'bg-yellow-500', text: 'Reviewed' },
+      validated: { color: 'bg-purple-500', text: 'Validated' },
       approved: { color: 'bg-green-500', text: 'Approved' },
       rejected: { color: 'bg-red-500', text: 'Rejected' }
     };
@@ -157,9 +120,7 @@ const CompanyDashboard: React.FC = () => {
     switch (status) {
       case 'approved': return <CheckCircle className="h-4 w-4 text-green-600" />;
       case 'rejected': return <AlertCircle className="h-4 w-4 text-red-600" />;
-      case 'pending': return <Clock className="h-4 w-4 text-yellow-600" />;
-      case 'l1_reviewed': return <CheckCircle className="h-4 w-4 text-blue-600" />;
-      case 'l2_reviewed': return <CheckCircle className="h-4 w-4 text-purple-600" />;
+      case 'submitted': return <Clock className="h-4 w-4 text-blue-600" />;
       default: return <FileText className="h-4 w-4 text-gray-600" />;
     }
   };
@@ -440,12 +401,8 @@ const CompanyDashboard: React.FC = () => {
       {selectedSubmission && (
         <SubmissionDetailsDialog
           submission={selectedSubmission}
-          open={!!selectedSubmission}
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedSubmission(null);
-            }
-          }}
+          isOpen={!!selectedSubmission}
+          onClose={() => setSelectedSubmission(null)}
         />
       )}
     </Layout>
