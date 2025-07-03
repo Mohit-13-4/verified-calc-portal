@@ -83,7 +83,7 @@ const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = ({
         original: submission.originalValues || {},
         changed: submission.l1EditedValues,
         comment: submission.l1Comment || 'No comment',
-        color: 'blue'
+        colorType: 'blue' as const
       });
     }
     
@@ -93,43 +93,67 @@ const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = ({
         original: submission.l1EditedValues || submission.originalValues || {},
         changed: submission.l2EditedValues,
         comment: submission.l2Comment || 'No comment',
-        color: 'purple'
+        colorType: 'purple' as const
       });
     }
 
-    return changes.map((change, index) => (
-      <div key={index} className={`bg-${change.color}-50 border border-${change.color}-200 rounded-lg p-4 mb-4`}>
-        <h4 className={`font-medium text-${change.color}-800 mb-3`}>{change.level}</h4>
-        <div className="space-y-2">
-          {Object.entries(change.changed).map(([key, newValue]) => {
-            const oldValue = change.original[key];
-            const hasChanged = oldValue !== newValue;
-            
-            return (
-              <div key={key} className="flex items-center justify-between text-sm">
-                <span className="font-medium">{key}:</span>
-                <div className="flex items-center space-x-2">
-                  <span className={hasChanged ? 'line-through text-gray-500' : 'font-mono'}>
-                    {oldValue}
-                  </span>
-                  {hasChanged && (
-                    <>
-                      <ArrowRight className="h-3 w-3 text-gray-400" />
-                      <span className={`font-mono font-bold text-${change.color}-600`}>
-                        {newValue}
-                      </span>
-                    </>
-                  )}
+    return changes.map((change, index) => {
+      const getColorClasses = (colorType: 'blue' | 'purple') => {
+        if (colorType === 'blue') {
+          return {
+            bg: 'bg-blue-50',
+            border: 'border-blue-200',
+            text: 'text-blue-800',
+            accent: 'text-blue-600',
+            commentBg: 'bg-blue-100'
+          };
+        } else {
+          return {
+            bg: 'bg-purple-50',
+            border: 'border-purple-200',
+            text: 'text-purple-800',
+            accent: 'text-purple-600',
+            commentBg: 'bg-purple-100'
+          };
+        }
+      };
+
+      const colors = getColorClasses(change.colorType);
+
+      return (
+        <div key={index} className={`${colors.bg} ${colors.border} border rounded-lg p-4 mb-4`}>
+          <h4 className={`font-medium ${colors.text} mb-3`}>{change.level}</h4>
+          <div className="space-y-2">
+            {Object.entries(change.changed).map(([key, newValue]) => {
+              const oldValue = change.original[key];
+              const hasChanged = oldValue !== newValue;
+              
+              return (
+                <div key={key} className="flex items-center justify-between text-sm">
+                  <span className="font-medium">{key}:</span>
+                  <div className="flex items-center space-x-2">
+                    <span className={hasChanged ? 'line-through text-gray-500' : 'font-mono'}>
+                      {oldValue}
+                    </span>
+                    {hasChanged && (
+                      <>
+                        <ArrowRight className="h-3 w-3 text-gray-400" />
+                        <span className={`font-mono font-bold ${colors.accent}`}>
+                          {newValue}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+          <div className={`mt-3 p-2 ${colors.commentBg} rounded text-sm`}>
+            <span className="font-medium">Comment:</span> {change.comment}
+          </div>
         </div>
-        <div className={`mt-3 p-2 bg-${change.color}-100 rounded text-sm`}>
-          <span className="font-medium">Comment:</span> {change.comment}
-        </div>
-      </div>
-    ));
+      );
+    });
   };
 
   return (
