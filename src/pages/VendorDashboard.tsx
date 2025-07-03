@@ -1,323 +1,299 @@
+
 import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Slider } from "@/components/ui/slider";
-import { useToast } from "@/hooks/use-toast";
+import { FileText, Eye, Download, Plus, DollarSign, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import SubmissionDetailsDialog from '../components/SubmissionDetailsDialog';
 import PartialInvoiceDialog from '../components/PartialInvoiceDialog';
-import { Plus, FileText, Clock, CheckCircle, XCircle, Eye, TrendingUp, Receipt, IndianRupee } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import PDFGenerator from '../components/PDFGenerator';
+import { formatINR } from '../utils/currency';
 
-// Mock calculation data with INR currency and completion percentages
-const mockCalculations = [
-  {
-    id: 'CALC-001',
-    title: 'Material Cost Analysis Q4',
-    formula: 'Material Cost + Labor + Overhead',
-    status: 'approved',
-    submittedDate: '2024-01-15',
-    currentLevel: 'completed',
-    totalValue: 1250000,
-    completionPercentage: 100,
-    vendor: 'ABC Construction Ltd',
-    description: 'Complete material cost analysis for Q4 construction work',
-    values: { Block1: 10.5, Block2: 8.2, Block3: 6.0 },
-    originalValues: { Block1: 10.0, Block2: 8.0, Block3: 6.0 },
-    result: 1250000,
-    erpReady: true,
-    submittedAt: '2024-01-15T10:30:00Z',
-    attachedPDF: 'material_cost_analysis_q4.pdf',
-    comments: 'Approved by all levels'
-  },
-  {
-    id: 'CALC-002',
-    title: 'Project Budget Estimation',
-    formula: 'Direct Costs × 1.15 + Fixed Costs',
-    status: 'l2_reviewed',
-    submittedDate: '2024-01-18',
-    currentLevel: 'level2',
-    totalValue: 895000,
-    completionPercentage: 75,
-    vendor: 'ABC Construction Ltd',
-    description: 'Budget estimation for new infrastructure project',
-    values: { Block1: 15.2, Block2: 12.8, Block3: 8.5 },
-    originalValues: { Block1: 15.0, Block2: 12.5, Block3: 8.0 },
-    result: 895000,
-    erpReady: false,
-    submittedAt: '2024-01-18T14:20:00Z',
-    attachedPDF: 'project_budget_estimation.pdf',
-    comments: 'Under review by Level 2'
-  },
-  {
-    id: 'CALC-003',
-    title: 'Quarterly Revenue Projection',
-    formula: 'Base Revenue + Growth Factor',
-    status: 'rejected',
-    submittedDate: '2024-01-10',
-    currentLevel: 'level1',
-    totalValue: 0,
-    completionPercentage: 30,
-    vendor: 'ABC Construction Ltd',
-    description: 'Revenue projection analysis for current quarter',
-    values: { Block1: 5.0, Block2: 3.2, Block3: 2.1 },
-    originalValues: { Block1: 5.0, Block2: 3.2, Block3: 2.1 },
-    result: 0,
-    erpReady: false,
-    submittedAt: '2024-01-10T09:15:00Z',
-    rejectionComment: 'Incorrect formula parameters - please revise measurements and resubmit',
-    comments: 'Incorrect formula parameters - please revise'
-  }
-];
+interface Submission {
+  id: string;
+  trackingNumber: string;
+  projectName: string;
+  submissionDate: string;
+  status: 'draft' | 'submitted' | 'reviewed' | 'validated' | 'approved' | 'rejected';
+  totalAmount: number;
+  completionPercentage: number;
+  formula: string;
+  values: Record<string, number>;
+  result: number;
+  description: string;
+  invoicePercentage?: number;
+  invoiceAmount?: number;
+  invoiceStatus?: 'none' | 'requested' | 'approved' | 'paid';
+}
 
-const VendorDashboard = () => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const [calculations] = useState(mockCalculations);
-  const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+const VendorDashboard: React.FC = () => {
+  const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
-  const [invoiceSubmission, setInvoiceSubmission] = useState<any>(null);
+  const [submissions] = useState<Submission[]>([
+    {
+      id: '1',
+      trackingNumber: 'CALC-001',
+      projectName: 'Highway Construction Phase 1',
+      submissionDate: '2025-01-03',
+      status: 'approved',
+      totalAmount: 2500000,
+      completionPercentage: 100,
+      formula: 'Material Cost + Labor + Overhead',
+      values: { Block1: 10.5, Block2: 8.2, Block3: 6.0 },
+      result: 2500000,
+      description: 'Complete material cost analysis for Q4 construction work',
+      invoicePercentage: 100,
+      invoiceAmount: 2500000,
+      invoiceStatus: 'approved'
+    },
+    {
+      id: '2',
+      trackingNumber: 'CALC-002',
+      projectName: 'Bridge Foundation Work',
+      submissionDate: '2025-01-02',
+      status: 'validated',
+      totalAmount: 1800000,
+      completionPercentage: 85,
+      formula: 'Concrete Volume × Rate + Steel Weight × Rate',
+      values: { ConcreteVolume: 450, SteelWeight: 12.5 },
+      result: 1800000,
+      description: 'Foundation concrete and steel reinforcement calculations',
+      invoicePercentage: 75,
+      invoiceAmount: 1350000,
+      invoiceStatus: 'requested'
+    },
+    {
+      id: '3',
+      trackingNumber: 'CALC-003',
+      projectName: 'Residential Complex - Block A',
+      submissionDate: '2025-01-01',
+      status: 'reviewed',
+      totalAmount: 3200000,
+      completionPercentage: 60,
+      formula: 'Built-up Area × Rate per sq.ft',
+      values: { BuiltUpArea: 8000, RatePerSqFt: 400 },
+      result: 3200000,
+      description: 'Residential building construction cost estimation',
+      invoicePercentage: 0,
+      invoiceAmount: 0,
+      invoiceStatus: 'none'
+    },
+    {
+      id: '4',
+      trackingNumber: 'CALC-004',
+      projectName: 'Water Treatment Plant',
+      submissionDate: '2024-12-30',
+      status: 'submitted',
+      totalAmount: 4500000,
+      completionPercentage: 40,
+      formula: 'Equipment Cost + Installation + Civil Work',
+      values: { Equipment: 2800000, Installation: 900000, CivilWork: 800000 },
+      result: 4500000,
+      description: 'Water treatment facility construction and equipment installation',
+      invoicePercentage: 0,
+      invoiceAmount: 0,
+      invoiceStatus: 'none'
+    }
+  ]);
 
   const getStatusBadge = (status: string) => {
-    const statusMap = {
-      approved: { label: 'Approved', className: 'bg-green-100 text-green-800', icon: CheckCircle },
-      l2_reviewed: { label: 'Validated', className: 'bg-purple-100 text-purple-800', icon: CheckCircle },
-      l1_reviewed: { label: 'Reviewed', className: 'bg-blue-100 text-blue-800', icon: CheckCircle },
-      pending: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800', icon: Clock },
-      rejected: { label: 'Rejected', className: 'bg-red-100 text-red-800', icon: XCircle }
+    const statusConfig = {
+      draft: { color: 'bg-gray-500', text: 'Draft' },
+      submitted: { color: 'bg-blue-500', text: 'Submitted' },
+      reviewed: { color: 'bg-yellow-500', text: 'Reviewed' },
+      validated: { color: 'bg-purple-500', text: 'Validated' },
+      approved: { color: 'bg-green-500', text: 'Approved' },
+      rejected: { color: 'bg-red-500', text: 'Rejected' }
     };
     
-    const config = statusMap[status as keyof typeof statusMap];
-    const Icon = config.icon;
-    
+    const config = statusConfig[status as keyof typeof statusConfig];
     return (
-      <Badge className={config.className}>
-        <Icon className="h-3 w-3 mr-1" />
-        {config.label}
+      <Badge className={`${config.color} text-white hover:${config.color}/80`}>
+        {config.text}
       </Badge>
     );
   };
 
-  const getLevelProgress = (currentLevel: string, status: string) => {
-    if (status === 'rejected') return 'Rejected at Level 1';
-    if (status === 'approved') return 'All levels approved';
-    
-    const levelMap = {
-      level1: 'Under Level 1 Review',
-      level2: 'Under Level 2 Validation', 
-      level3: 'Under Level 3 Approval'
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'approved': return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'rejected': return <AlertCircle className="h-4 w-4 text-red-600" />;
+      case 'submitted': return <Clock className="h-4 w-4 text-blue-600" />;
+      default: return <FileText className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  const getInvoiceStatusBadge = (status: string) => {
+    const statusConfig = {
+      none: { color: 'bg-gray-400', text: 'No Invoice' },
+      requested: { color: 'bg-orange-500', text: 'Requested' },
+      approved: { color: 'bg-green-500', text: 'Approved' },
+      paid: { color: 'bg-blue-500', text: 'Paid' }
     };
     
-    return levelMap[currentLevel as keyof typeof levelMap] || 'Submitted';
+    const config = statusConfig[status as keyof typeof statusConfig];
+    return (
+      <Badge className={`${config.color} text-white hover:${config.color}/80`}>
+        {config.text}
+      </Badge>
+    );
   };
 
-  const handleViewSubmission = (calc: any) => {
-    setSelectedSubmission(calc);
-    setShowDetailsDialog(true);
-  };
-
-  const handleGenerateInvoice = (calc: any) => {
-    setInvoiceSubmission(calc);
-    setShowInvoiceDialog(true);
-  };
-
-  const getTotalEarnings = () => {
-    return calculations
-      .filter(calc => calc.status === 'approved')
-      .reduce((sum, calc) => sum + calc.totalValue, 0);
-  };
-
-  const getPendingAmount = () => {
-    return calculations
-      .filter(calc => calc.status !== 'rejected' && calc.status !== 'approved')
-      .reduce((sum, calc) => sum + calc.totalValue, 0);
-  };
+  const approvedSubmissions = submissions.filter(s => s.status === 'approved');
+  const totalEarnings = approvedSubmissions.reduce((sum, s) => sum + (s.invoiceAmount || 0), 0);
+  const pendingAmount = submissions.filter(s => s.invoiceStatus === 'requested').reduce((sum, s) => sum + (s.invoiceAmount || 0), 0);
 
   return (
-    <Layout title="Vendor Portal">
+    <Layout title="Vendor Dashboard">
       <div className="space-y-6">
-        {/* Header Section */}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Submissions</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{submissions.length}</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Approved</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{approvedSubmissions.length}</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
+              <DollarSign className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{formatINR(totalEarnings)}</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
+              <Clock className="h-4 w-4 text-orange-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">{formatINR(pendingAmount)}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Actions */}
         <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">My Calculations</h2>
-            <p className="text-gray-600">Submit and track your calculation requests</p>
-          </div>
-          <Button 
-            onClick={() => navigate('/vendor/new-calculation')}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Calculation
+          <h2 className="text-2xl font-bold">My Submissions</h2>
+          <Button className="flex items-center space-x-2">
+            <Plus className="h-4 w-4" />
+            <span>New Submission</span>
           </Button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <FileText className="h-8 w-8 text-blue-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Submitted</p>
-                  <p className="text-2xl font-bold text-gray-900">{calculations.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Clock className="h-8 w-8 text-yellow-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Pending</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {calculations.filter(c => c.status === 'pending' || c.status.includes('reviewed')).length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <CheckCircle className="h-8 w-8 text-green-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Approved</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {calculations.filter(c => c.status === 'approved').length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <XCircle className="h-8 w-8 text-red-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Rejected</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {calculations.filter(c => c.status === 'rejected').length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <IndianRupee className="h-8 w-8 text-green-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Earnings</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    ₹{getTotalEarnings().toLocaleString('en-IN')}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Calculations List */}
+        {/* Submissions Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Calculations</CardTitle>
-            <CardDescription>
-              Track the status of your submitted calculations
-            </CardDescription>
+            <CardTitle>Recent Submissions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {calculations.map((calc) => (
-                <div key={calc.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="font-semibold text-gray-900">{calc.title}</h3>
-                        {getStatusBadge(calc.status)}
-                      </div>
-
-                      {/* Work Completion Progress */}
-                      <div className="mb-3">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center space-x-2">
-                            <TrendingUp className="h-3 w-3 text-blue-600" />
-                            <span className="text-xs font-medium text-gray-600">Work Completion</span>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-4">Tracking #</th>
+                    <th className="text-left p-4">Project</th>
+                    <th className="text-left p-4">Amount</th>
+                    <th className="text-left p-4">Status</th>
+                    <th className="text-left p-4">Completion</th>
+                    <th className="text-left p-4">Invoice</th>
+                    <th className="text-left p-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {submissions.map((submission) => (
+                    <tr key={submission.id} className="border-b hover:bg-gray-50">
+                      <td className="p-4">
+                        <div className="flex items-center space-x-2">
+                          {getStatusIcon(submission.status)}
+                          <span className="font-medium">{submission.trackingNumber}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div>
+                          <div className="font-medium">{submission.projectName}</div>
+                          <div className="text-sm text-gray-500">{submission.submissionDate}</div>
+                        </div>
+                      </td>
+                      <td className="p-4 font-medium">{formatINR(submission.totalAmount)}</td>
+                      <td className="p-4">{getStatusBadge(submission.status)}</td>
+                      <td className="p-4">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-20 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-600 h-2 rounded-full" 
+                              style={{ width: `${submission.completionPercentage}%` }}
+                            ></div>
                           </div>
-                          <span className="text-xs font-bold text-blue-600">{calc.completionPercentage}%</span>
+                          <span className="text-sm font-medium">{submission.completionPercentage}%</span>
                         </div>
-                        <Progress value={calc.completionPercentage} className="h-1" />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
-                        <div>
-                          <span className="font-medium">ID:</span> {calc.id}
+                      </td>
+                      <td className="p-4">
+                        <div className="space-y-1">
+                          {getInvoiceStatusBadge(submission.invoiceStatus || 'none')}
+                          {submission.invoiceAmount ? (
+                            <div className="text-sm text-gray-600">
+                              {formatINR(submission.invoiceAmount)} ({submission.invoicePercentage}%)
+                            </div>
+                          ) : null}
                         </div>
-                        <div>
-                          <span className="font-medium">Formula:</span> {calc.formula}
-                        </div>
-                        <div>
-                          <span className="font-medium">Submitted:</span> {calc.submittedDate}
-                        </div>
-                      </div>
-                      <div className="mt-2">
-                        <div className="text-sm">
-                          <span className="font-medium text-gray-700">Status:</span>{' '}
-                          <span className="text-gray-600">{getLevelProgress(calc.currentLevel, calc.status)}</span>
-                        </div>
-                        {calc.totalValue > 0 && (
-                          <div className="text-sm">
-                            <span className="font-medium text-gray-700">Value:</span>{' '}
-                            <span className="text-green-600 font-bold">₹{calc.totalValue.toLocaleString('en-IN')}</span>
-                          </div>
-                        )}
-                      </div>
-                      {calc.comments && (
-                        <div className="mt-2 p-2 bg-gray-100 rounded text-sm">
-                          <span className="font-medium">Comments:</span> {calc.comments}
-                        </div>
-                      )}
-                    </div>
-                    <div className="ml-4 flex flex-col space-y-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleViewSubmission(calc)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                      
-                      {calc.status === 'approved' && (
-                        <>
-                          <Button 
-                            variant="outline" 
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
                             size="sm"
-                            onClick={() => handleGenerateInvoice(calc)}
-                            className="text-green-600 border-green-600 hover:bg-green-50"
+                            onClick={() => setSelectedSubmission(submission)}
+                            className="flex items-center space-x-1"
                           >
-                            <Receipt className="h-4 w-4 mr-1" />
-                            Invoice
+                            <Eye className="h-4 w-4" />
+                            <span>View</span>
                           </Button>
-                          
-                          <PDFGenerator 
-                            submission={calc}
-                            type="submission"
-                          />
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                          {submission.status === 'approved' && submission.invoiceStatus !== 'paid' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedSubmission(submission);
+                                setShowInvoiceDialog(true);
+                              }}
+                              className="flex items-center space-x-1"
+                            >
+                              <DollarSign className="h-4 w-4" />
+                              <span>Invoice</span>
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center space-x-1"
+                          >
+                            <Download className="h-4 w-4" />
+                            <span>PDF</span>
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </CardContent>
         </Card>
@@ -326,17 +302,20 @@ const VendorDashboard = () => {
       {/* Dialogs */}
       {selectedSubmission && (
         <SubmissionDetailsDialog
-          open={showDetailsDialog}
-          onOpenChange={setShowDetailsDialog}
           submission={selectedSubmission}
+          isOpen={!!selectedSubmission}
+          onClose={() => {
+            setSelectedSubmission(null);
+            setShowInvoiceDialog(false);
+          }}
         />
       )}
 
-      {invoiceSubmission && (
+      {showInvoiceDialog && selectedSubmission && (
         <PartialInvoiceDialog
-          open={showInvoiceDialog}
-          onOpenChange={setShowInvoiceDialog}
-          submission={invoiceSubmission}
+          submission={selectedSubmission}
+          isOpen={showInvoiceDialog}
+          onClose={() => setShowInvoiceDialog(false)}
         />
       )}
     </Layout>

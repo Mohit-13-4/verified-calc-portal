@@ -9,6 +9,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from '../contexts/AuthContext';
 
 interface Notification {
   id: string;
@@ -17,54 +18,119 @@ interface Notification {
   timestamp: string;
   read: boolean;
   type: 'info' | 'success' | 'warning';
+  targetRoles: string[];
 }
 
 const NotificationBell: React.FC = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([
+  const { user } = useAuth();
+  
+  const [allNotifications] = useState<Notification[]>([
+    // Vendor notifications
     {
       id: '1',
-      title: 'Submission Reviewed',
-      message: 'Your calculation CALC-002 has been reviewed by Level 1',
+      title: 'Submission Approved',
+      message: 'Your calculation CALC-002 has been approved by all levels',
       timestamp: '2025-01-03T10:30:00Z',
       read: false,
-      type: 'info'
+      type: 'success',
+      targetRoles: ['vendor']
     },
     {
       id: '2',
-      title: 'Invoice Request Received',
-      message: 'Partial invoice request (75%) submitted successfully',
+      title: 'Partial Invoice Accepted',
+      message: 'Your 75% invoice request has been accepted for processing',
       timestamp: '2025-01-03T09:15:00Z',
       read: false,
-      type: 'success'
+      type: 'success',
+      targetRoles: ['vendor']
     },
     {
       id: '3',
-      title: 'Submission Validated',
-      message: 'Material Cost Analysis Q4 has been validated by Level 2',
+      title: 'Comment Added',
+      message: 'Level 1 reviewer added a comment to your submission CALC-005',
       timestamp: '2025-01-02T16:45:00Z',
       read: true,
-      type: 'success'
+      type: 'info',
+      targetRoles: ['vendor']
     },
+    
+    // Level 1 notifications
     {
       id: '4',
-      title: 'Action Required',
-      message: 'Please review submission CALC-005 - deadline approaching',
-      timestamp: '2025-01-02T14:20:00Z',
+      title: 'New Submission Received',
+      message: 'CALC-006 submitted by ABC Construction Ltd awaiting review',
+      timestamp: '2025-01-03T11:20:00Z',
       read: false,
-      type: 'warning'
+      type: 'info',
+      targetRoles: ['level1']
+    },
+    {
+      id: '5',
+      title: 'Vendor Response',
+      message: 'Vendor responded to your comment on CALC-003',
+      timestamp: '2025-01-02T14:30:00Z',
+      read: false,
+      type: 'warning',
+      targetRoles: ['level1']
+    },
+    
+    // Level 2 notifications
+    {
+      id: '6',
+      title: 'Reviewed Submission Ready',
+      message: 'CALC-004 has been reviewed and is ready for validation',
+      timestamp: '2025-01-03T08:45:00Z',
+      read: false,
+      type: 'info',
+      targetRoles: ['level2']
+    },
+    {
+      id: '7',
+      title: 'Urgent Validation Required',
+      message: 'High-priority submission CALC-001 requires immediate validation',
+      timestamp: '2025-01-02T13:15:00Z',
+      read: true,
+      type: 'warning',
+      targetRoles: ['level2']
+    },
+    
+    // Level 3 notifications
+    {
+      id: '8',
+      title: 'Validated Submission',
+      message: 'CALC-002 has been validated and awaits final approval',
+      timestamp: '2025-01-03T07:30:00Z',
+      read: false,
+      type: 'info',
+      targetRoles: ['level3']
+    },
+    {
+      id: '9',
+      title: 'Invoice Approval Required',
+      message: 'Partial invoice request requires your final approval',
+      timestamp: '2025-01-02T12:00:00Z',
+      read: false,
+      type: 'warning',
+      targetRoles: ['level3']
     }
   ]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  // Filter notifications based on user role
+  const notifications = allNotifications.filter(notification => 
+    notification.targetRoles.includes(user?.role || '')
+  );
+
+  const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
+
+  const unreadCount = notifications.filter(n => !n.read && !readNotifications.has(n.id)).length;
 
   const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
+    setReadNotifications(prev => new Set(prev).add(id));
   };
 
   const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    const allIds = notifications.map(n => n.id);
+    setReadNotifications(new Set(allIds));
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -86,6 +152,10 @@ const NotificationBell: React.FC = () => {
       case 'warning': return 'text-yellow-600';
       default: return 'text-blue-600';
     }
+  };
+
+  const isNotificationRead = (notification: Notification) => {
+    return notification.read || readNotifications.has(notification.id);
   };
 
   return (
@@ -130,13 +200,13 @@ const NotificationBell: React.FC = () => {
                   <div
                     key={notification.id}
                     className={`p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                      !notification.read ? 'bg-blue-50' : ''
+                      !isNotificationRead(notification) ? 'bg-blue-50' : ''
                     }`}
                     onClick={() => markAsRead(notification.id)}
                   >
                     <div className="flex items-start space-x-3">
                       <div className={`w-2 h-2 rounded-full mt-2 ${
-                        !notification.read ? 'bg-blue-600' : 'bg-gray-300'
+                        !isNotificationRead(notification) ? 'bg-blue-600' : 'bg-gray-300'
                       }`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
