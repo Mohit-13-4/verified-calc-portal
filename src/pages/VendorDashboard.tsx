@@ -319,10 +319,12 @@ const VendorDashboard: React.FC = () => {
       {selectedSubmission && (
         <SubmissionDetailsDialog
           submission={selectedSubmission}
-          isOpen={!!selectedSubmission}
-          onClose={() => {
-            setSelectedSubmission(null);
-            setShowInvoiceDialog(false);
+          open={!!selectedSubmission}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedSubmission(null);
+              setShowInvoiceDialog(false);
+            }
           }}
         />
       )}

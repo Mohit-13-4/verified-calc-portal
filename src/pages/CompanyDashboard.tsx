@@ -440,8 +440,12 @@ const CompanyDashboard: React.FC = () => {
       {selectedSubmission && (
         <SubmissionDetailsDialog
           submission={selectedSubmission}
-          isOpen={!!selectedSubmission}
-          onClose={() => setSelectedSubmission(null)}
+          open={!!selectedSubmission}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedSubmission(null);
+            }
+          }}
         />
       )}
     </Layout>
