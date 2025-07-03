@@ -3,11 +3,13 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import RejectionDialog from './RejectionDialog';
 import ValueEditDialog from './ValueEditDialog';
 import ApprovalTimeline from './ApprovalTimeline';
+import SubmissionDetailsDialog from './SubmissionDetailsDialog';
 import { workflowAPI } from '../services/workflowAPI';
 import { 
   CheckCircle,
@@ -19,7 +21,9 @@ import {
   MessageSquare,
   ChevronDown,
   ChevronUp,
-  History
+  History,
+  Eye,
+  TrendingUp
 } from 'lucide-react';
 
 interface Submission {
@@ -38,6 +42,8 @@ interface Submission {
   rejectionComment?: string;
   l1Comment?: string;
   l2Comment?: string;
+  completionPercentage?: number;
+  attachedPDF?: string;
   valueChangeHistory?: Array<{
     level: string;
     originalValues: Record<string, number>;
@@ -62,13 +68,14 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
   const [showValueEditDialog, setShowValueEditDialog] = useState(false);
   const [showApprovalTimeline, setShowApprovalTimeline] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const { toast } = useToast();
 
   const getStatusConfig = (status: string) => {
     const configs = {
       pending: { label: 'Pending Review', className: 'bg-yellow-100 text-yellow-800', icon: Clock },
-      l1_reviewed: { label: 'L1 Reviewed', className: 'bg-blue-100 text-blue-800', icon: CheckCircle },
-      l2_reviewed: { label: 'L2 Reviewed', className: 'bg-purple-100 text-purple-800', icon: CheckCircle },
+      l1_reviewed: { label: 'Reviewed', className: 'bg-blue-100 text-blue-800', icon: CheckCircle },
+      l2_reviewed: { label: 'Validated', className: 'bg-purple-100 text-purple-800', icon: CheckCircle },
       approved: { label: 'Approved', className: 'bg-green-100 text-green-800', icon: CheckCircle },
       rejected: { label: 'Rejected', className: 'bg-red-100 text-red-800', icon: AlertTriangle }
     };
@@ -90,9 +97,9 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
   };
 
   const getActionLabel = () => {
-    if (userRole === 'level1') return 'Verify';
-    if (userRole === 'level2') return 'Approve';
-    if (userRole === 'level3') return 'Finalize';
+    if (userRole === 'level1') return 'Review';
+    if (userRole === 'level2') return 'Validate';
+    if (userRole === 'level3') return 'Approve';
     return 'Action';
   };
 
@@ -109,13 +116,14 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
       if (userRole === 'level3') {
         console.log('Generating PDF report for submission:', submission.id);
         toast({
-          title: "Submission Finalized",
+          title: "Submission Approved",
           description: "PDF report generated and submission approved for ERP integration.",
         });
       } else {
+        const actionName = getActionLabel().toLowerCase();
         toast({
           title: "Status Updated",
-          description: `Submission has been ${getActionLabel().toLowerCase()}ed and forwarded to the next level.`,
+          description: `Submission has been ${actionName}ed and forwarded to the next level.`,
         });
       }
       
@@ -176,7 +184,6 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
         description: "The submission values have been updated. Changes are tracked for the next level.",
       });
       
-      // Trigger a refresh of the submission data
       onStatusChange?.(submission.id, submission.status);
       setShowValueEditDialog(false);
       
@@ -197,6 +204,10 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
       title: "Download Started",
       description: "PDF report is being generated and will download shortly.",
     });
+  };
+
+  const handleViewDetails = () => {
+    setShowDetailsDialog(true);
   };
 
   const renderValueComparison = () => {
@@ -222,7 +233,6 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
           </div>
         </div>
 
-        {/* L1 Changes */}
         {showL1Changes && (
           <div className="bg-blue-50 p-3 rounded-lg">
             <div className="text-sm font-medium text-blue-600 mb-2">
@@ -246,7 +256,6 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
           </div>
         )}
 
-        {/* L2 Changes */}
         {showL2Changes && (
           <div className="bg-purple-50 p-3 rounded-lg">
             <div className="text-sm font-medium text-purple-600 mb-2">
@@ -270,7 +279,6 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
           </div>
         )}
 
-        {/* Current Values */}
         <div className="bg-green-50 p-3 rounded-lg">
           <div className="text-sm font-medium text-green-600 mb-2">Current Values</div>
           <div className="grid grid-cols-3 gap-2 text-xs">
@@ -288,8 +296,9 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
 
   const StatusIcon = getStatusConfig(submission.status).icon;
   const canEdit = canApprove() && submission.status !== 'approved' && submission.status !== 'rejected';
+  const completionPercentage = submission.completionPercentage || 0;
 
-  // Mock approval timeline data - replace with real data from backend
+  // Mock approval timeline data
   const mockApprovalSteps = [
     {
       level: 1,
@@ -351,6 +360,18 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Work Completion Progress */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                <TrendingUp className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-gray-700">Work Completion</span>
+              </div>
+              <span className="text-sm font-bold text-blue-600">{completionPercentage}%</span>
+            </div>
+            <Progress value={completionPercentage} className="h-2" />
+          </div>
+
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="font-medium text-gray-600">Vendor:</span>
@@ -362,7 +383,7 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
             </div>
             <div>
               <span className="font-medium text-gray-600">Result:</span>
-              <span className="ml-2 font-mono">{submission.result}</span>
+              <span className="ml-2 font-mono">₹{submission.result.toLocaleString('en-IN')}</span>
             </div>
             <div>
               <span className="font-medium text-gray-600">ID:</span>
@@ -375,7 +396,6 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
             <p className="text-sm text-gray-700 mt-1">{submission.description}</p>
           </div>
 
-          {/* Rejection Comment Display */}
           {submission.rejectionComment && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
               <div className="flex items-center space-x-2 mb-2">
@@ -386,10 +406,8 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
             </div>
           )}
 
-          {/* Value Comparison */}
           {renderValueComparison()}
 
-          {/* Approval Timeline */}
           <Collapsible open={showApprovalTimeline} onOpenChange={setShowApprovalTimeline}>
             <CollapsibleTrigger asChild>
               <Button 
@@ -463,8 +481,12 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
                 </Button>
               )}
               
-              <Button variant="outline" size="sm">
-                <FileText className="h-4 w-4 mr-2" />
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleViewDetails}
+              >
+                <Eye className="h-4 w-4 mr-2" />
                 Details
               </Button>
             </div>
@@ -472,7 +494,6 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
         </CardContent>
       </Card>
 
-      {/* Dialogs */}
       <RejectionDialog
         open={showRejectionDialog}
         onOpenChange={setShowRejectionDialog}
@@ -486,6 +507,12 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
         onConfirm={handleValueEdit}
         originalValues={submission.values}
         loading={loading}
+      />
+
+      <SubmissionDetailsDialog
+        open={showDetailsDialog}
+        onOpenChange={setShowDetailsDialog}
+        submission={submission}
       />
     </>
   );
