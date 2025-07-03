@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   Dialog,
@@ -10,8 +9,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  FileText, 
+import PDFGenerator from './PDFGenerator';
+import { FileText, 
   Calculator, 
   User, 
   Clock, 
@@ -175,10 +174,16 @@ const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = ({
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>{submission.formula}</span>
-                <Badge className={getStatusConfig(submission.status).className}>
-                  <StatusIcon className="h-3 w-3 mr-1" />
-                  {getStatusConfig(submission.status).label}
-                </Badge>
+                <div className="flex items-center space-x-2">
+                  <Badge className={getStatusConfig(submission.status).className}>
+                    <StatusIcon className="h-3 w-3 mr-1" />
+                    {getStatusConfig(submission.status).label}
+                  </Badge>
+                  <PDFGenerator 
+                    submission={submission}
+                    type="submission"
+                  />
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">

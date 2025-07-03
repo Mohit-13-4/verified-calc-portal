@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +10,7 @@ import SubmissionDetailsDialog from '../components/SubmissionDetailsDialog';
 import PartialInvoiceDialog from '../components/PartialInvoiceDialog';
 import { Plus, FileText, Clock, CheckCircle, XCircle, Eye, TrendingUp, Receipt, IndianRupee } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import PDFGenerator from '../components/PDFGenerator';
 
 // Mock calculation data with INR currency and completion percentages
 const mockCalculations = [
@@ -297,15 +297,22 @@ const VendorDashboard = () => {
                       </Button>
                       
                       {calc.status === 'approved' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleGenerateInvoice(calc)}
-                          className="text-green-600 border-green-600 hover:bg-green-50"
-                        >
-                          <Receipt className="h-4 w-4 mr-1" />
-                          Invoice
-                        </Button>
+                        <>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleGenerateInvoice(calc)}
+                            className="text-green-600 border-green-600 hover:bg-green-50"
+                          >
+                            <Receipt className="h-4 w-4 mr-1" />
+                            Invoice
+                          </Button>
+                          
+                          <PDFGenerator 
+                            submission={calc}
+                            type="submission"
+                          />
+                        </>
                       )}
                     </div>
                   </div>
