@@ -124,8 +124,8 @@ const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = ({
         <div key={index} className={`${colors.bg} ${colors.border} border rounded-lg p-4 mb-4`}>
           <h4 className={`font-medium ${colors.text} mb-3`}>{change.level}</h4>
           <div className="space-y-2">
-            {Object.entries(change.changed).map(([key, newValue]) => {
-              const oldValue = change.original[key];
+            {Object.entries(change.changed).map(([key, newValue]: [string, number]) => {
+              const oldValue: number = change.original[key] || 0;
               const hasChanged = oldValue !== newValue;
               
               return (
