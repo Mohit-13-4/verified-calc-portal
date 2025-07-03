@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,70 +23,106 @@ import { formatINR } from '../utils/currency';
 interface Submission {
   id: string;
   trackingNumber: string;
+  vendor: string;
   vendorName: string;
   projectName: string;
   submissionDate: string;
+  submittedAt: string;
   status: 'submitted' | 'reviewed' | 'validated' | 'approved' | 'rejected';
   totalAmount: number;
   completionPercentage: number;
   description: string;
+  formula: string;
+  values: Record<string, number>;
+  result: number;
+  erpReady: boolean;
 }
 
 const mockSubmissions: Submission[] = [
   {
     id: '1',
     trackingNumber: 'CALC-001',
+    vendor: 'ABC Construction Ltd',
     vendorName: 'ABC Construction Ltd',
     projectName: 'Highway Construction Phase 1',
     submissionDate: '2025-01-05',
+    submittedAt: '2025-01-05',
     status: 'approved',
     totalAmount: 2500000,
     completionPercentage: 100,
-    description: 'Complete material cost analysis for Q4 construction work'
+    description: 'Complete material cost analysis for Q4 construction work',
+    formula: 'Material Cost + Labor + Overhead',
+    values: { Block1: 10.5, Block2: 8.2, Block3: 6.0 },
+    result: 2500000,
+    erpReady: true
   },
   {
     id: '2',
     trackingNumber: 'CALC-002',
+    vendor: 'XYZ Builders',
     vendorName: 'XYZ Builders',
     projectName: 'Bridge Foundation Work',
     submissionDate: '2025-01-04',
+    submittedAt: '2025-01-04',
     status: 'validated',
     totalAmount: 1800000,
     completionPercentage: 85,
-    description: 'Foundation concrete and steel reinforcement calculations'
+    description: 'Foundation concrete and steel reinforcement calculations',
+    formula: 'Concrete Volume × Rate + Steel Weight × Rate',
+    values: { ConcreteVolume: 450, SteelWeight: 12.5 },
+    result: 1800000,
+    erpReady: false
   },
   {
     id: '3',
     trackingNumber: 'CALC-003',
+    vendor: 'PQR Infra',
     vendorName: 'PQR Infra',
     projectName: 'Residential Complex - Block A',
     submissionDate: '2025-01-03',
+    submittedAt: '2025-01-03',
     status: 'reviewed',
     totalAmount: 3200000,
     completionPercentage: 60,
-    description: 'Residential building construction cost estimation'
+    description: 'Residential building construction cost estimation',
+    formula: 'Built-up Area × Rate per sq.ft',
+    values: { BuiltUpArea: 8000, RatePerSqFt: 400 },
+    result: 3200000,
+    erpReady: false
   },
   {
     id: '4',
     trackingNumber: 'CALC-004',
+    vendor: 'LMN Projects',
     vendorName: 'LMN Projects',
     projectName: 'Water Treatment Plant',
     submissionDate: '2025-01-02',
+    submittedAt: '2025-01-02',
     status: 'submitted',
     totalAmount: 4500000,
     completionPercentage: 40,
-    description: 'Water treatment facility construction and equipment installation'
+    description: 'Water treatment facility construction and equipment installation',
+    formula: 'Equipment Cost + Installation + Civil Work',
+    values: { Equipment: 2800000, Installation: 900000, CivilWork: 800000 },
+    result: 4500000,
+    erpReady: false
   },
   {
     id: '5',
     trackingNumber: 'CALC-005',
+    vendor: 'RST Enterprises',
     vendorName: 'RST Enterprises',
     projectName: 'Commercial Complex - Tower B',
     submissionDate: '2025-01-01',
+    submittedAt: '2025-01-01',
     status: 'submitted',
     totalAmount: 5800000,
     completionPercentage: 25,
-    description: 'Commercial building structural design and cost analysis'
+    description: 'Commercial building structural design and cost analysis',
+    formula: 'Structural Steel + Concrete + Labor',
+    values: { StructuralSteel: 2500000, Concrete: 2000000, Labor: 1300000 },
+    result: 5800000,
+    erpReady: false
   }
 ];
 

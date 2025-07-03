@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
 import { Button } from "@/components/ui/button";
@@ -12,8 +11,10 @@ import { formatINR } from '../utils/currency';
 interface Submission {
   id: string;
   trackingNumber: string;
+  vendor: string;
   projectName: string;
   submissionDate: string;
+  submittedAt: string;
   status: 'draft' | 'submitted' | 'reviewed' | 'validated' | 'approved' | 'rejected';
   totalAmount: number;
   completionPercentage: number;
@@ -24,6 +25,7 @@ interface Submission {
   invoicePercentage?: number;
   invoiceAmount?: number;
   invoiceStatus?: 'none' | 'requested' | 'approved' | 'paid';
+  erpReady: boolean;
 }
 
 const VendorDashboard: React.FC = () => {
@@ -33,8 +35,10 @@ const VendorDashboard: React.FC = () => {
     {
       id: '1',
       trackingNumber: 'CALC-001',
+      vendor: 'ABC Construction Ltd',
       projectName: 'Highway Construction Phase 1',
       submissionDate: '2025-01-03',
+      submittedAt: '2025-01-03',
       status: 'approved',
       totalAmount: 2500000,
       completionPercentage: 100,
@@ -44,13 +48,16 @@ const VendorDashboard: React.FC = () => {
       description: 'Complete material cost analysis for Q4 construction work',
       invoicePercentage: 100,
       invoiceAmount: 2500000,
-      invoiceStatus: 'approved'
+      invoiceStatus: 'approved',
+      erpReady: true
     },
     {
       id: '2',
       trackingNumber: 'CALC-002',
+      vendor: 'ABC Construction Ltd',
       projectName: 'Bridge Foundation Work',
       submissionDate: '2025-01-02',
+      submittedAt: '2025-01-02',
       status: 'validated',
       totalAmount: 1800000,
       completionPercentage: 85,
@@ -60,13 +67,16 @@ const VendorDashboard: React.FC = () => {
       description: 'Foundation concrete and steel reinforcement calculations',
       invoicePercentage: 75,
       invoiceAmount: 1350000,
-      invoiceStatus: 'requested'
+      invoiceStatus: 'requested',
+      erpReady: false
     },
     {
       id: '3',
       trackingNumber: 'CALC-003',
+      vendor: 'ABC Construction Ltd',
       projectName: 'Residential Complex - Block A',
       submissionDate: '2025-01-01',
+      submittedAt: '2025-01-01',
       status: 'reviewed',
       totalAmount: 3200000,
       completionPercentage: 60,
@@ -76,13 +86,16 @@ const VendorDashboard: React.FC = () => {
       description: 'Residential building construction cost estimation',
       invoicePercentage: 0,
       invoiceAmount: 0,
-      invoiceStatus: 'none'
+      invoiceStatus: 'none',
+      erpReady: false
     },
     {
       id: '4',
       trackingNumber: 'CALC-004',
+      vendor: 'ABC Construction Ltd',
       projectName: 'Water Treatment Plant',
       submissionDate: '2024-12-30',
+      submittedAt: '2024-12-30',
       status: 'submitted',
       totalAmount: 4500000,
       completionPercentage: 40,
@@ -92,7 +105,8 @@ const VendorDashboard: React.FC = () => {
       description: 'Water treatment facility construction and equipment installation',
       invoicePercentage: 0,
       invoiceAmount: 0,
-      invoiceStatus: 'none'
+      invoiceStatus: 'none',
+      erpReady: false
     }
   ]);
 
