@@ -4,338 +4,388 @@ import { Layout } from '../components/Layout';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Eye, Download, Plus, DollarSign, Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import SubmissionDetailsDialog from '../components/SubmissionDetailsDialog';
-import PartialInvoiceDialog from '../components/PartialInvoiceDialog';
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Search, 
+  Filter, 
+  FileText, 
+  Clock, 
+  CheckCircle, 
+  DollarSign,
+  Receipt,
+  Target,
+  TrendingUp
+} from 'lucide-react';
+import ContractCard from '../components/ContractCard';
+import ItemList from '../components/ItemList';
+import SubitemList from '../components/SubitemList';
+import SubitemEntryForm from '../components/SubitemEntryForm';
+import InvoicePreview from '../components/InvoicePreview';
+import { mockContracts } from '../data/mockContracts';
+import { Contract, ContractSubitem, QuantityEntry, InvoiceItem } from '../types/contract';
 import { formatINR } from '../utils/currency';
-
-interface Submission {
-  id: string;
-  trackingNumber: string;
-  vendor: string;
-  projectName: string;
-  submissionDate: string;
-  submittedAt: string;
-  status: 'pending' | 'l1_reviewed' | 'l2_reviewed' | 'approved' | 'rejected';
-  totalAmount: number;
-  completionPercentage: number;
-  formula: string;
-  values: Record<string, number>;
-  result: number;
-  description: string;
-  invoicePercentage?: number;
-  invoiceAmount?: number;
-  invoiceStatus?: 'none' | 'requested' | 'approved' | 'paid';
-  erpReady: boolean;
-}
+import { useToast } from "@/hooks/use-toast";
 
 const VendorDashboard: React.FC = () => {
-  const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
-  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
-  const [submissions] = useState<Submission[]>([
-    {
-      id: '1',
-      trackingNumber: 'CALC-001',
-      vendor: 'ABC Construction Ltd',
-      projectName: 'Highway Construction Phase 1',
-      submissionDate: '2025-01-03',
-      submittedAt: '2025-01-03',
-      status: 'approved',
-      totalAmount: 2500000,
-      completionPercentage: 100,
-      formula: 'Material Cost + Labor + Overhead',
-      values: { Block1: 10.5, Block2: 8.2, Block3: 6.0 },
-      result: 2500000,
-      description: 'Complete material cost analysis for Q4 construction work',
-      invoicePercentage: 100,
-      invoiceAmount: 2500000,
-      invoiceStatus: 'approved',
-      erpReady: true
-    },
-    {
-      id: '2',
-      trackingNumber: 'CALC-002',
-      vendor: 'ABC Construction Ltd',
-      projectName: 'Bridge Foundation Work',
-      submissionDate: '2025-01-02',
-      submittedAt: '2025-01-02',
-      status: 'l2_reviewed',
-      totalAmount: 1800000,
-      completionPercentage: 85,
-      formula: 'Concrete Volume × Rate + Steel Weight × Rate',
-      values: { ConcreteVolume: 450, SteelWeight: 12.5 },
-      result: 1800000,
-      description: 'Foundation concrete and steel reinforcement calculations',
-      invoicePercentage: 75,
-      invoiceAmount: 1350000,
-      invoiceStatus: 'requested',
-      erpReady: false
-    },
-    {
-      id: '3',
-      trackingNumber: 'CALC-003',
-      vendor: 'ABC Construction Ltd',
-      projectName: 'Residential Complex - Block A',
-      submissionDate: '2025-01-01',
-      submittedAt: '2025-01-01',
-      status: 'l1_reviewed',
-      totalAmount: 3200000,
-      completionPercentage: 60,
-      formula: 'Built-up Area × Rate per sq.ft',
-      values: { BuiltUpArea: 8000, RatePerSqFt: 400 },
-      result: 3200000,
-      description: 'Residential building construction cost estimation',
-      invoicePercentage: 0,
-      invoiceAmount: 0,
-      invoiceStatus: 'none',
-      erpReady: false
-    },
-    {
-      id: '4',
-      trackingNumber: 'CALC-004',
-      vendor: 'ABC Construction Ltd',
-      projectName: 'Water Treatment Plant',
-      submissionDate: '2024-12-30',
-      submittedAt: '2024-12-30',
-      status: 'pending',
-      totalAmount: 4500000,
-      completionPercentage: 40,
-      formula: 'Equipment Cost + Installation + Civil Work',
-      values: { Equipment: 2800000, Installation: 900000, CivilWork: 800000 },
-      result: 4500000,
-      description: 'Water treatment facility construction and equipment installation',
-      invoicePercentage: 0,
-      invoiceAmount: 0,
-      invoiceStatus: 'none',
-      erpReady: false
-    }
-  ]);
+  const { toast } = useToast();
+  const [contracts] = useState<Contract[]>(mockContracts);
+  const [expandedContract, setExpandedContract] = useState<string | null>(null);
+  const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const [selectedSubitems, setSelectedSubitems] = useState<string[]>([]);
+  const [editingSubitem, setEditingSubitem] = useState<ContractSubitem | null>(null);
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'ready' | 'submitted'>('all');
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      pending: { color: 'bg-yellow-500', text: 'Pending' },
-      l1_reviewed: { color: 'bg-blue-500', text: 'Reviewed' },
-      l2_reviewed: { color: 'bg-purple-500', text: 'Validated' },
-      approved: { color: 'bg-green-500', text: 'Approved' },
-      rejected: { color: 'bg-red-500', text: 'Rejected' }
-    };
-    
-    const config = statusConfig[status as keyof typeof statusConfig];
-    return (
-      <Badge className={`${config.color} text-white hover:${config.color}/80`}>
-        {config.text}
-      </Badge>
+  // Stats calculations
+  const totalContracts = contracts.length;
+  const activeContracts = contracts.filter(c => c.status === 'active').length;
+  const totalValue = contracts.reduce((sum, c) => sum + c.totalValue, 0);
+  
+  const allSubitems = contracts.flatMap(c => 
+    c.items.flatMap(i => i.subitems)
+  );
+  
+  const completedValue = allSubitems.reduce((sum, s) => 
+    sum + (s.completedQuantity * s.rate), 0
+  );
+
+  const draftEntries = allSubitems.filter(s => s.status === 'draft').length;
+  const submittedEntries = allSubitems.filter(s => s.status === 'submitted').length;
+
+  const handleExpandContract = (contractId: string) => {
+    setExpandedContract(expandedContract === contractId ? null : contractId);
+    setExpandedItem(null);
+    setSelectedSubitems([]);
+  };
+
+  const handleExpandItem = (itemId: string) => {
+    setExpandedItem(expandedItem === itemId ? null : itemId);
+    setSelectedSubitems([]);
+  };
+
+  const handleToggleSubitemSelection = (subitemId: string) => {
+    setSelectedSubitems(prev => 
+      prev.includes(subitemId)
+        ? prev.filter(id => id !== subitemId)
+        : [...prev, subitemId]
     );
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved': return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'rejected': return <AlertCircle className="h-4 w-4 text-red-600" />;
-      case 'pending': return <Clock className="h-4 w-4 text-yellow-600" />;
-      case 'l1_reviewed': return <CheckCircle className="h-4 w-4 text-blue-600" />;
-      case 'l2_reviewed': return <CheckCircle className="h-4 w-4 text-purple-600" />;
-      default: return <FileText className="h-4 w-4 text-gray-600" />;
-    }
-  };
-
-  const getInvoiceStatusBadge = (status: string) => {
-    const statusConfig = {
-      none: { color: 'bg-gray-400', text: 'No Invoice' },
-      requested: { color: 'bg-orange-500', text: 'Requested' },
-      approved: { color: 'bg-green-500', text: 'Approved' },
-      paid: { color: 'bg-blue-500', text: 'Paid' }
-    };
+  const handleSaveEntry = (
+    subitemId: string, 
+    entry: Omit<QuantityEntry, 'id' | 'createdAt'>, 
+    isDraft: boolean
+  ) => {
+    // Mock saving - in real implementation, this would call an API
+    console.log('Saving entry:', { subitemId, entry, isDraft });
     
-    const config = statusConfig[status as keyof typeof statusConfig];
-    return (
-      <Badge className={`${config.color} text-white hover:${config.color}/80`}>
-        {config.text}
-      </Badge>
-    );
+    // Update the subitem's completed quantity and status
+    // This is a simplified mock implementation
+    toast({
+      title: isDraft ? "Draft Saved" : "Entry Submitted",
+      description: isDraft 
+        ? "Your progress has been saved as draft"
+        : "Your entry has been submitted for review"
+    });
   };
 
-  const approvedSubmissions = submissions.filter(s => s.status === 'approved');
-  const totalEarnings = approvedSubmissions.reduce((sum, s) => sum + (s.invoiceAmount || 0), 0);
-  const pendingAmount = submissions.filter(s => s.invoiceStatus === 'requested').reduce((sum, s) => sum + (s.invoiceAmount || 0), 0);
+  const handleGenerateInvoice = () => {
+    if (selectedSubitems.length === 0) {
+      toast({
+        title: "No Items Selected",
+        description: "Please select at least one item to generate an invoice",
+        variant: "destructive"
+      });
+      return;
+    }
+    setShowInvoicePreview(true);
+  };
+
+  const getInvoiceItems = (): InvoiceItem[] => {
+    const items: InvoiceItem[] = [];
+    
+    contracts.forEach(contract => {
+      contract.items.forEach(item => {
+        item.subitems.forEach(subitem => {
+          if (selectedSubitems.includes(subitem.id)) {
+            items.push({
+              contractId: contract.id,
+              itemId: item.id,
+              subitemId: subitem.id,
+              itemName: item.name,
+              subitemName: subitem.name,
+              totalQuantity: subitem.totalQuantity,
+              completedQuantity: subitem.completedQuantity,
+              rate: subitem.rate,
+              amount: subitem.completedQuantity * subitem.rate
+            });
+          }
+        });
+      });
+    });
+    
+    return items;
+  };
+
+  const handleSubmitInvoice = () => {
+    // Mock invoice submission
+    console.log('Submitting invoice for items:', getInvoiceItems());
+    setSelectedSubitems([]);
+  };
+
+  const getFilteredSubitems = () => {
+    if (!expandedContract || !expandedItem) return [];
+    
+    const contract = contracts.find(c => c.id === expandedContract);
+    const item = contract?.items.find(i => i.id === expandedItem);
+    
+    if (!item) return [];
+    
+    let subitems = item.subitems;
+    
+    if (searchTerm) {
+      subitems = subitems.filter(s => 
+        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.description.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    if (filterStatus !== 'all') {
+      subitems = subitems.filter(s => s.status === filterStatus);
+    }
+    
+    return subitems;
+  };
 
   return (
     <Layout title="Vendor Dashboard">
       <div className="space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Submissions</CardTitle>
+              <CardTitle className="text-sm font-medium">Active Contracts</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{submissions.length}</div>
+              <div className="text-2xl font-bold">{activeContracts}</div>
+              <p className="text-xs text-muted-foreground">of {totalContracts} total</p>
             </CardContent>
           </Card>
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Approved</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <CardTitle className="text-sm font-medium">Total Value</CardTitle>
+              <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{approvedSubmissions.length}</div>
+              <div className="text-2xl font-bold">{formatINR(totalValue)}</div>
+              <p className="text-xs text-muted-foreground">Contract value</p>
             </CardContent>
           </Card>
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
-              <DollarSign className="h-4 w-4 text-blue-600" />
+              <CardTitle className="text-sm font-medium">Completed Value</CardTitle>
+              <TrendingUp className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{formatINR(totalEarnings)}</div>
+              <div className="text-2xl font-bold text-green-600">{formatINR(completedValue)}</div>
+              <p className="text-xs text-muted-foreground">Work completed</p>
             </CardContent>
           </Card>
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
+              <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
               <Clock className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{formatINR(pendingAmount)}</div>
+              <div className="text-2xl font-bold text-orange-600">{draftEntries}</div>
+              <p className="text-xs text-muted-foreground">{submittedEntries} submitted</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Actions */}
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">My Submissions</h2>
-          <Button className="flex items-center space-x-2">
-            <Plus className="h-4 w-4" />
-            <span>New Submission</span>
-          </Button>
-        </div>
-
-        {/* Submissions Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Submissions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-4">Tracking #</th>
-                    <th className="text-left p-4">Project</th>
-                    <th className="text-left p-4">Amount</th>
-                    <th className="text-left p-4">Status</th>
-                    <th className="text-left p-4">Completion</th>
-                    <th className="text-left p-4">Invoice</th>
-                    <th className="text-left p-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {submissions.map((submission) => (
-                    <tr key={submission.id} className="border-b hover:bg-gray-50">
-                      <td className="p-4">
-                        <div className="flex items-center space-x-2">
-                          {getStatusIcon(submission.status)}
-                          <span className="font-medium">{submission.trackingNumber}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div>
-                          <div className="font-medium">{submission.projectName}</div>
-                          <div className="text-sm text-gray-500">{submission.submissionDate}</div>
-                        </div>
-                      </td>
-                      <td className="p-4 font-medium">{formatINR(submission.totalAmount)}</td>
-                      <td className="p-4">{getStatusBadge(submission.status)}</td>
-                      <td className="p-4">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-20 bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-blue-600 h-2 rounded-full" 
-                              style={{ width: `${submission.completionPercentage}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-sm font-medium">{submission.completionPercentage}%</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="space-y-1">
-                          {getInvoiceStatusBadge(submission.invoiceStatus || 'none')}
-                          {submission.invoiceAmount ? (
-                            <div className="text-sm text-gray-600">
-                              {formatINR(submission.invoiceAmount)} ({submission.invoicePercentage}%)
+        {/* Contract Management */}
+        <Tabs defaultValue="contracts" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="contracts">My Contracts</TabsTrigger>
+            <TabsTrigger value="tasks">Task Overview</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="contracts" className="space-y-4">
+            {/* Contract List */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold">Assigned Contracts</h2>
+              
+              {contracts.map((contract) => (
+                <div key={contract.id} className="space-y-4">
+                  <ContractCard
+                    contract={contract}
+                    onExpand={handleExpandContract}
+                    isExpanded={expandedContract === contract.id}
+                  />
+                  
+                  {/* Expanded Contract Items */}
+                  {expandedContract === contract.id && (
+                    <div className="ml-6 space-y-4">
+                      <h3 className="text-lg font-medium">Project Items</h3>
+                      <ItemList
+                        items={contract.items}
+                        expandedItem={expandedItem}
+                        onExpandItem={handleExpandItem}
+                      />
+                      
+                      {/* Expanded Item Subitems */}
+                      {expandedItem && (
+                        <div className="ml-6 space-y-4">
+                          {/* Search and Filter */}
+                          <div className="flex gap-4 items-center">
+                            <div className="relative flex-1">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                              <Input
+                                placeholder="Search subitems..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10"
+                              />
                             </div>
-                          ) : null}
+                            <div className="flex gap-2">
+                              <Button
+                                variant={filterStatus === 'all' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setFilterStatus('all')}
+                              >
+                                All
+                              </Button>
+                              <Button
+                                variant={filterStatus === 'draft' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setFilterStatus('draft')}
+                              >
+                                Draft
+                              </Button>
+                              <Button
+                                variant={filterStatus === 'ready' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setFilterStatus('ready')}
+                              >
+                                Ready
+                              </Button>
+                              <Button
+                                variant={filterStatus === 'submitted' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setFilterStatus('submitted')}
+                              >
+                                Submitted
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          <h4 className="text-md font-medium">Subitems</h4>
+                          <SubitemList
+                            subitems={getFilteredSubitems()}
+                            selectedSubitems={selectedSubitems}
+                            onToggleSelection={handleToggleSubitemSelection}
+                            onEditSubitem={setEditingSubitem}
+                          />
                         </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedSubmission(submission)}
-                            className="flex items-center space-x-1"
-                          >
-                            <Eye className="h-4 w-4" />
-                            <span>View</span>
-                          </Button>
-                          {submission.status === 'approved' && submission.invoiceStatus !== 'paid' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedSubmission(submission);
-                                setShowInvoiceDialog(true);
-                              }}
-                              className="flex items-center space-x-1"
-                            >
-                              <DollarSign className="h-4 w-4" />
-                              <span>Invoice</span>
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center space-x-1"
-                          >
-                            <Download className="h-4 w-4" />
-                            <span>PDF</span>
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-          </CardContent>
-        </Card>
+          </TabsContent>
+          
+          <TabsContent value="tasks" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-orange-500" />
+                    Draft Entries
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-orange-600 mb-2">{draftEntries}</div>
+                  <p className="text-sm text-gray-600">Items saved as draft</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-blue-500" />
+                    Ready to Submit
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-blue-600 mb-2">
+                    {allSubitems.filter(s => s.status === 'ready').length}
+                  </div>
+                  <p className="text-sm text-gray-600">Items ready for review</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    Submitted
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-green-600 mb-2">{submittedEntries}</div>
+                  <p className="text-sm text-gray-600">Items under review</p>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Sticky Action Bar */}
+        {selectedSubitems.length > 0 && (
+          <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-50">
+            <div className="flex items-center gap-4">
+              <Badge variant="outline">
+                {selectedSubitems.length} item{selectedSubitems.length > 1 ? 's' : ''} selected
+              </Badge>
+              <Button
+                onClick={handleGenerateInvoice}
+                className="flex items-center gap-2"
+              >
+                <Receipt className="h-4 w-4" />
+                Generate Invoice
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setSelectedSubitems([])}
+              >
+                Clear Selection
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Dialogs */}
-      {selectedSubmission && (
-        <SubmissionDetailsDialog
-          submission={selectedSubmission}
-          open={!!selectedSubmission}
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedSubmission(null);
-              setShowInvoiceDialog(false);
-            }
-          }}
-        />
-      )}
+      <SubitemEntryForm
+        subitem={editingSubitem}
+        isOpen={!!editingSubitem}
+        onClose={() => setEditingSubitem(null)}
+        onSave={handleSaveEntry}
+      />
 
-      {showInvoiceDialog && selectedSubmission && (
-        <PartialInvoiceDialog
-          submission={selectedSubmission}
-          isOpen={showInvoiceDialog}
-          onClose={() => setShowInvoiceDialog(false)}
-        />
-      )}
+      <InvoicePreview
+        items={getInvoiceItems()}
+        isOpen={showInvoicePreview}
+        onClose={() => setShowInvoicePreview(false)}
+        onSubmit={handleSubmitInvoice}
+      />
     </Layout>
   );
 };
