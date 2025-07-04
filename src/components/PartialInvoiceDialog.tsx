@@ -1,225 +1,243 @@
 
 import React, { useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { DollarSign, FileText, CheckCircle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Receipt, 
-  IndianRupee, 
-  Calculator,
-  FileText,
-  Download
-} from 'lucide-react';
+import { formatINR } from '../utils/currency';
 
 interface Submission {
   id: string;
-  title: string;
-  formula: string;
-  totalValue: number;
+  trackingNumber: string;
+  projectName: string;
+  totalAmount: number;
   completionPercentage: number;
-  vendor: string;
-  description: string;
+  invoicePercentage?: number;
+  invoiceAmount?: number;
+  invoiceStatus?: string;
 }
 
 interface PartialInvoiceDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   submission: Submission;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 const PartialInvoiceDialog: React.FC<PartialInvoiceDialogProps> = ({
-  open,
-  onOpenChange,
-  submission
+  submission,
+  isOpen,
+  onClose
 }) => {
-  const [invoicePercentage, setInvoicePercentage] = useState([submission.completionPercentage || 50]);
-  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const [invoicePercentage, setInvoicePercentage] = useState(submission.invoicePercentage || 50);
+  const [customPercentage, setCustomPercentage] = useState(submission.invoicePercentage || 50);
 
-  const calculateInvoiceAmount = () => {
-    return (submission.totalValue * invoicePercentage[0]) / 100;
+  const maxInvoicePercentage = Math.min(submission.completionPercentage, 100);
+  const invoiceAmount = (submission.totalAmount * invoicePercentage) / 100;
+  const previousInvoiceAmount = submission.invoiceAmount || 0;
+  const netInvoiceAmount = invoiceAmount - previousInvoiceAmount;
+
+  const handleSliderChange = (value: number[]) => {
+    setInvoicePercentage(value[0]);
+    setCustomPercentage(value[0]);
   };
 
-  const handleGenerateInvoice = async () => {
-    setLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+  const handleCustomPercentageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Math.min(Math.max(0, parseInt(e.target.value) || 0), maxInvoicePercentage);
+    setCustomPercentage(value);
+    setInvoicePercentage(value);
+  };
+
+  const handleSubmitInvoice = () => {
+    if (invoicePercentage <= 0) {
       toast({
-        title: "Partial Invoice Generated",
-        description: `Invoice for ${invoicePercentage[0]}% of work (₹${calculateInvoiceAmount().toLocaleString('en-IN')}) has been generated successfully.`,
+        title: "Invalid Percentage",
+        description: "Invoice percentage must be greater than 0%",
+        variant: "destructive"
       });
-      
-      onOpenChange(false);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to generate invoice. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
 
-  const handleDownloadPreview = () => {
+    if (invoicePercentage > maxInvoicePercentage) {
+      toast({
+        title: "Invalid Percentage",
+        description: `Invoice percentage cannot exceed completion percentage (${maxInvoicePercentage}%)`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     toast({
-      title: "Preview Downloaded",
-      description: "Invoice preview has been downloaded to your device.",
+      title: "Invoice Submitted",
+      description: `Partial invoice request for ${invoicePercentage}% (${formatINR(netInvoiceAmount)}) has been submitted successfully.`,
     });
+
+    onClose();
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
-            <Receipt className="h-5 w-5" />
-            <span>Generate Partial Invoice</span>
+            <DollarSign className="h-5 w-5 text-green-600" />
+            <span>Partial Invoice Request</span>
           </DialogTitle>
-          <DialogDescription>
-            Create an invoice for partially completed work on {submission.title}
-          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Submission Summary */}
+          {/* Submission Info */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">{submission.title}</CardTitle>
+              <CardTitle className="text-lg flex items-center space-x-2">
+                <FileText className="h-5 w-5" />
+                <span>Submission Details</span>
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <span className="font-medium text-gray-600">Submission ID:</span>
-                  <span className="ml-2 font-mono">{submission.id}</span>
+                  <p className="text-sm text-gray-600">Tracking Number</p>
+                  <p className="font-medium">{submission.trackingNumber}</p>
                 </div>
                 <div>
-                  <span className="font-medium text-gray-600">Vendor:</span>
-                  <span className="ml-2">{submission.vendor}</span>
+                  <p className="text-sm text-gray-600">Project</p>
+                  <p className="font-medium">{submission.projectName}</p>
                 </div>
                 <div>
-                  <span className="font-medium text-gray-600">Formula:</span>
-                  <span className="ml-2">{submission.formula}</span>
+                  <p className="text-sm text-gray-600">Total Amount</p>
+                  <p className="font-medium">{formatINR(submission.totalAmount)}</p>
                 </div>
                 <div>
-                  <span className="font-medium text-gray-600">Total Value:</span>
-                  <span className="ml-2 font-bold text-green-600">
-                    ₹{submission.totalValue.toLocaleString('en-IN')}
-                  </span>
+                  <p className="text-sm text-gray-600">Work Completion</p>
+                  <p className="font-medium">{submission.completionPercentage}%</p>
                 </div>
               </div>
-              <div>
-                <span className="font-medium text-gray-600">Description:</span>
-                <p className="text-sm text-gray-700 mt-1">{submission.description}</p>
-              </div>
+              
+              {previousInvoiceAmount > 0 && (
+                <>
+                  <Separator />
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="text-sm text-blue-800 font-medium">Previous Invoice</p>
+                    <p className="text-blue-700">{formatINR(previousInvoiceAmount)} ({submission.invoicePercentage}%)</p>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
           {/* Invoice Configuration */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Calculator className="h-5 w-5" />
-                <span>Invoice Configuration</span>
-              </CardTitle>
+              <CardTitle className="text-lg">Invoice Configuration</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <label className="text-sm font-medium text-gray-700">
-                    Percentage of work completed:
-                  </label>
-                  <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-bold">
-                    {invoicePercentage[0]}%
+              {/* Percentage Slider */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="percentage">Invoice Percentage</Label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      id="percentage"
+                      type="number"
+                      value={customPercentage}
+                      onChange={handleCustomPercentageChange}
+                      className="w-20"
+                      min={0}
+                      max={maxInvoicePercentage}
+                    />
+                    <span className="text-sm text-gray-500">%</span>
                   </div>
                 </div>
+                
                 <Slider
-                  value={invoicePercentage}
-                  onValueChange={setInvoicePercentage}
-                  max={100}
-                  min={1}
+                  value={[invoicePercentage]}
+                  onValueChange={handleSliderChange}
+                  max={maxInvoicePercentage}
+                  min={0}
                   step={1}
                   className="w-full"
                 />
-                <div className="flex justify-between text-xs text-gray-500 mt-2">
-                  <span>1%</span>
-                  <span>50%</span>
-                  <span>100%</span>
+                
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>0%</span>
+                  <span>Max: {maxInvoicePercentage}%</span>
                 </div>
               </div>
 
-              {/* Invoice Summary */}
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <h4 className="font-medium text-green-800 mb-3">Invoice Summary</h4>
-                <div className="space-y-2 text-sm">
+              {/* Amount Breakdown */}
+              <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                <h4 className="font-medium text-gray-900">Amount Breakdown</h4>
+                
+                <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span>Total Project Value:</span>
-                    <span className="font-mono">₹{submission.totalValue.toLocaleString('en-IN')}</span>
+                    <span className="text-gray-600">Total Project Value:</span>
+                    <span className="font-medium">{formatINR(submission.totalAmount)}</span>
                   </div>
+                  
                   <div className="flex justify-between">
-                    <span>Work Completed:</span>
-                    <span className="font-mono">{invoicePercentage[0]}%</span>
+                    <span className="text-gray-600">Invoice Percentage:</span>
+                    <span className="font-medium">{invoicePercentage}%</span>
                   </div>
-                  <div className="border-t border-green-300 pt-2 flex justify-between font-bold text-green-800">
-                    <span>Invoice Amount:</span>
-                    <span className="font-mono text-lg">
-                      ₹{calculateInvoiceAmount().toLocaleString('en-IN')}
-                    </span>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Gross Invoice Amount:</span>
+                    <span className="font-medium">{formatINR(invoiceAmount)}</span>
+                  </div>
+                  
+                  {previousInvoiceAmount > 0 && (
+                    <div className="flex justify-between text-red-600">
+                      <span>Less: Previous Invoice:</span>
+                      <span className="font-medium">-{formatINR(previousInvoiceAmount)}</span>
+                    </div>
+                  )}
+                  
+                  <Separator />
+                  
+                  <div className="flex justify-between text-lg font-bold text-green-600">
+                    <span>Net Payable Amount:</span>
+                    <span>{formatINR(netInvoiceAmount)}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Additional Information */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <h4 className="font-medium text-gray-800 mb-2">Invoice Details</h4>
-                <div className="space-y-1 text-sm text-gray-600">
-                  <div>• Invoice will be generated for {invoicePercentage[0]}% of completed work</div>
-                  <div>• Payment terms: 30 days from invoice date</div>
-                  <div>• GST will be calculated as per applicable rates</div>
-                  <div>• Supporting documents will be attached automatically</div>
+              {/* Validation Messages */}
+              {invoicePercentage > maxInvoicePercentage && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-red-800 text-sm">
+                    Invoice percentage cannot exceed work completion percentage ({maxInvoicePercentage}%)
+                  </p>
                 </div>
-              </div>
+              )}
+
+              {netInvoiceAmount <= 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <p className="text-yellow-800 text-sm">
+                    Net payable amount is zero or negative. Please adjust the invoice percentage.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-between pt-4 border-t">
-            <Button
-              variant="outline"
-              onClick={handleDownloadPreview}
+          <div className="flex justify-end space-x-3">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmitInvoice}
+              disabled={invoicePercentage <= 0 || invoicePercentage > maxInvoicePercentage || netInvoiceAmount <= 0}
               className="flex items-center space-x-2"
             >
-              <FileText className="h-4 w-4" />
-              <span>Preview Invoice</span>
+              <CheckCircle className="h-4 w-4" />
+              <span>Submit Invoice Request</span>
             </Button>
-
-            <div className="flex space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleGenerateInvoice}
-                disabled={loading}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <Receipt className="h-4 w-4 mr-2" />
-                {loading ? "Generating..." : "Generate Invoice"}
-              </Button>
-            </div>
           </div>
         </div>
       </DialogContent>
