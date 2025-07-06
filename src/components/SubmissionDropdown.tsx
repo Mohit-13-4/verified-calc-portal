@@ -140,9 +140,10 @@ const SubmissionDropdown: React.FC<SubmissionDropdownProps> = ({
         <div key={index} className={`${colors.bg} ${colors.border} border rounded-lg p-3 mb-3`}>
           <h5 className={`font-medium ${colors.text} mb-2 text-sm`}>{change.level}</h5>
           <div className="space-y-1">
-            {Object.entries(change.changed).map(([key, newValue]: [string, number]) => {
+            {Object.entries(change.changed).map(([key, newValue]: [string, any]) => {
               const oldValue: number = change.original[key] || 0;
-              const hasChanged = oldValue !== newValue;
+              const numNewValue = Number(newValue);
+              const hasChanged = oldValue !== numNewValue;
               
               return (
                 <div key={key} className="flex items-center justify-between text-xs">
@@ -155,7 +156,7 @@ const SubmissionDropdown: React.FC<SubmissionDropdownProps> = ({
                       <>
                         <ArrowRight className="h-2 w-2 text-gray-400" />
                         <span className={`font-mono font-bold ${colors.accent}`}>
-                          {newValue}
+                          {numNewValue}
                         </span>
                       </>
                     )}
@@ -262,7 +263,7 @@ const SubmissionDropdown: React.FC<SubmissionDropdownProps> = ({
                       {Object.entries(submission.values).map(([key, value]) => (
                         <div key={key} className="bg-gray-50 p-2 rounded">
                           <div className="text-xs font-medium text-gray-600">{key}</div>
-                          <div className="text-sm font-mono font-bold">{value}</div>
+                          <div className="text-sm font-mono font-bold">{String(value)}</div>
                         </div>
                       ))}
                     </div>

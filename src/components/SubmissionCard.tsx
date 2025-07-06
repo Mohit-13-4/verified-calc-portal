@@ -169,12 +169,12 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
     }
   };
 
-  const handleValueEdit = async (newValues: Record<string, number>, comment: string) => {
+  const handleValueEdit = async (submissionId: string, newValues: Record<string, number>, comment: string) => {
     setLoading(true);
     try {
-      console.log(`Editing values for submission ${submission.id}:`, newValues);
+      console.log(`Editing values for submission ${submissionId}:`, newValues);
       
-      await workflowAPI.updateSubmissionStatus(submission.id, {
+      await workflowAPI.updateSubmissionStatus(submissionId, {
         editedValues: newValues,
         editComment: comment
       });
@@ -184,7 +184,7 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
         description: "The submission values have been updated. Changes are tracked for the next level.",
       });
       
-      onStatusChange?.(submission.id, submission.status);
+      onStatusChange?.(submissionId, submission.status);
       setShowValueEditDialog(false);
       
     } catch (error) {
@@ -504,9 +504,9 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
       <ValueEditDialog
         open={showValueEditDialog}
         onOpenChange={setShowValueEditDialog}
-        onConfirm={handleValueEdit}
-        originalValues={submission.values}
-        loading={loading}
+        submission={submission}
+        userRole={userRole}
+        onSave={handleValueEdit}
       />
 
       <SubmissionDetailsDialog
