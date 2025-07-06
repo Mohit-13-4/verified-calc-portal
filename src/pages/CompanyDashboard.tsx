@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,6 +12,7 @@ import {
   Building
 } from 'lucide-react';
 import SubmissionDropdown from '../components/SubmissionDropdown';
+import ProjectDetailsView from '../components/ProjectDetailsView';
 import { formatINR } from '../utils/currency';
 import { useToast } from "@/hooks/use-toast";
 
@@ -124,18 +124,101 @@ const mockSubmissions: Submission[] = [
   }
 ];
 
+// Mock project data for detailed view
+const mockProjectData = {
+  id: '1',
+  name: 'Highway Construction Phase 1',
+  company: 'Maharashtra State Road Development Corporation',
+  location: 'Mumbai-Pune Highway, Maharashtra',
+  dateRange: '2024-01-15 - 2024-12-31',
+  totalValue: 25000000,
+  status: 'active' as const,
+  items: [
+    {
+      id: 'item1',
+      name: 'Road Surface Work',
+      description: 'Bituminous concrete and surface preparation',
+      progress: 41,
+      pricePerUnit: 450,
+      unit: 'sq.m',
+      status: 'ready' as const,
+      subitems: [
+        {
+          id: 'sub1',
+          name: 'Section A - Lane 1',
+          description: 'Bituminous concrete laying for Lane 1, KM 0-5',
+          total: 5000,
+          completed: 2250,
+          rate: 450,
+          value: 1012500,
+          status: 'ready' as const
+        }
+      ]
+    },
+    {
+      id: 'item2',
+      name: 'Drainage Systems',
+      description: 'Side drains and culvert construction',
+      progress: 100,
+      pricePerUnit: 280,
+      unit: 'running meter',
+      status: 'submitted' as const,
+      subitems: [
+        {
+          id: 'sub2',
+          name: 'Culvert Construction',
+          description: 'RCC box culvert at multiple locations',
+          total: 500,
+          completed: 500,
+          rate: 280,
+          value: 140000,
+          status: 'submitted' as const
+        }
+      ]
+    }
+  ]
+};
+
 const CompanyDashboard: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [submissions, setSubmissions] = useState<Submission[]>(mockSubmissions);
   const [selectedTab, setSelectedTab] = useState('pending');
   const [expandedSubmission, setExpandedSubmission] = useState<string | null>(null);
+  const [expandedProjectItems, setExpandedProjectItems] = useState<string[]>([]);
+  const [showProjectDetails, setShowProjectDetails] = useState<string | null>(null);
 
   const pendingSubmissions = submissions.filter(s => s.status !== 'approved' && s.status !== 'rejected');
   const approvedSubmissions = submissions.filter(s => s.status === 'approved');
 
   const handleToggleSubmission = (submissionId: string) => {
     setExpandedSubmission(expandedSubmission === submissionId ? null : submissionId);
+  };
+
+  const handleToggleProjectItem = (itemId: string) => {
+    setExpandedProjectItems(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  const handleShowProjectDetails = (submissionId: string) => {
+    setShowProjectDetails(showProjectDetails === submissionId ? null : submissionId);
+  };
+
+  const handleEditSubitem = (subitemId: string, itemId: string) => {
+    toast({
+      title: "Edit Subitem",
+      description: `Editing subitem ${subitemId} in item ${itemId}`,
+    });
+  };
+
+  const handleAddSubitem = (itemId: string) => {
+    toast({
+      title: "Add Subitem",
+      description: `Adding new subitem to item ${itemId}`,
+    });
   };
 
   const handleEditValues = (submissionId: string, updatedValues: Record<string, number>, comment: string) => {
@@ -316,92 +399,95 @@ const CompanyDashboard: React.FC = () => {
               </TabsList>
               
               <TabsContent value="pending" className="mt-4">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-4">Tracking #</th>
-                        <th className="text-left p-4">Vendor</th>
-                        <th className="text-left p-4">Project</th>
-                        <th className="text-left p-4">Amount</th>
-                        <th className="text-left p-4">Status</th>
-                        <th className="text-left p-4">Submitted</th>
-                        <th className="text-left p-4">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pendingSubmissions.map((submission) => (
-                        <SubmissionDropdown
-                          key={submission.id}
-                          submission={submission}
-                          isExpanded={expandedSubmission === submission.id}
-                          onToggle={() => handleToggleSubmission(submission.id)}
-                          onApprove={handleApprove}
-                          onReject={handleReject}
-                          onEditValues={handleEditValues}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="space-y-4">
+                  {pendingSubmissions.map((submission) => (
+                    <div key={submission.id}>
+                      <SubmissionDropdown
+                        submission={submission}
+                        isExpanded={expandedSubmission === submission.id}
+                        onToggle={() => handleToggleSubmission(submission.id)}
+                        onApprove={handleApprove}
+                        onReject={handleReject}
+                        onEditValues={handleEditValues}
+                        onShowDetails={() => handleShowProjectDetails(submission.id)}
+                      />
+                      
+                      {/* Project Details View */}
+                      {showProjectDetails === submission.id && (
+                        <div className="mt-4">
+                          <ProjectDetailsView
+                            project={mockProjectData}
+                            expandedItems={expandedProjectItems}
+                            onToggleItem={handleToggleProjectItem}
+                            onEditSubitem={handleEditSubitem}
+                            onAddSubitem={handleAddSubitem}
+                            userRole={user?.role}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </TabsContent>
               
               <TabsContent value="approved" className="mt-4">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-4">Tracking #</th>
-                        <th className="text-left p-4">Vendor</th>
-                        <th className="text-left p-4">Project</th>
-                        <th className="text-left p-4">Amount</th>
-                        <th className="text-left p-4">Status</th>
-                        <th className="text-left p-4">Completion</th>
-                        <th className="text-left p-4">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {approvedSubmissions.map((submission) => (
-                        <SubmissionDropdown
-                          key={submission.id}
-                          submission={submission}
-                          isExpanded={expandedSubmission === submission.id}
-                          onToggle={() => handleToggleSubmission(submission.id)}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="space-y-4">
+                  {approvedSubmissions.map((submission) => (
+                    <div key={submission.id}>
+                      <SubmissionDropdown
+                        submission={submission}
+                        isExpanded={expandedSubmission === submission.id}
+                        onToggle={() => handleToggleSubmission(submission.id)}
+                        onShowDetails={() => handleShowProjectDetails(submission.id)}
+                      />
+                      
+                      {/* Project Details View */}
+                      {showProjectDetails === submission.id && (
+                        <div className="mt-4">
+                          <ProjectDetailsView
+                            project={mockProjectData}
+                            expandedItems={expandedProjectItems}
+                            onToggleItem={handleToggleProjectItem}
+                            onEditSubitem={handleEditSubitem}
+                            onAddSubitem={handleAddSubitem}
+                            userRole={user?.role}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </TabsContent>
               
               <TabsContent value="all" className="mt-4">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-4">Tracking #</th>
-                        <th className="text-left p-4">Vendor</th>
-                        <th className="text-left p-4">Project</th>
-                        <th className="text-left p-4">Amount</th>
-                        <th className="text-left p-4">Status</th>
-                        <th className="text-left p-4">Submitted</th>
-                        <th className="text-left p-4">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {submissions.map((submission) => (
-                        <SubmissionDropdown
-                          key={submission.id}
-                          submission={submission}
-                          isExpanded={expandedSubmission === submission.id}
-                          onToggle={() => handleToggleSubmission(submission.id)}
-                          onApprove={handleApprove}
-                          onReject={handleReject}
-                          onEditValues={handleEditValues}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="space-y-4">
+                  {submissions.map((submission) => (
+                    <div key={submission.id}>
+                      <SubmissionDropdown
+                        submission={submission}
+                        isExpanded={expandedSubmission === submission.id}
+                        onToggle={() => handleToggleSubmission(submission.id)}
+                        onApprove={handleApprove}
+                        onReject={handleReject}
+                        onEditValues={handleEditValues}
+                        onShowDetails={() => handleShowProjectDetails(submission.id)}
+                      />
+                      
+                      {/* Project Details View */}
+                      {showProjectDetails === submission.id && (
+                        <div className="mt-4">
+                          <ProjectDetailsView
+                            project={mockProjectData}
+                            expandedItems={expandedProjectItems}
+                            onToggleItem={handleToggleProjectItem}
+                            onEditSubitem={handleEditSubitem}
+                            onAddSubitem={handleAddSubitem}
+                            userRole={user?.role}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </TabsContent>
             </Tabs>

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -201,25 +200,22 @@ const AdminDashboard = () => {
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="name">Formula Name</Label>
-        <input
+        <Input
           id="name"
-          type="text"
           value={newFormula.name}
           onChange={(e) => setNewFormula({ ...newFormula, name: e.target.value })}
           placeholder="Enter formula name"
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         />
       </div>
       
       <div className="space-y-2">
         <Label htmlFor="description">Description</Label>
-        <textarea
+        <Textarea
           id="description"
           value={newFormula.description}
           onChange={(e) => setNewFormula({ ...newFormula, description: e.target.value })}
           placeholder="Enter formula description"
           rows={3}
-          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         />
       </div>
       
@@ -257,19 +253,15 @@ const AdminDashboard = () => {
                 </Button>
               )}
             </div>
-            <input
-              type="text"
+            <Input
               value={block.label}
               onChange={(e) => updateBlock(index, 'label', e.target.value)}
               placeholder="Block label (e.g., Length)"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             />
-            <input
-              type="text"
+            <Input
               value={block.description}
               onChange={(e) => updateBlock(index, 'description', e.target.value)}
               placeholder="Block description"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
         ))}
