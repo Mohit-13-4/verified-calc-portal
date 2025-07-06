@@ -22,6 +22,7 @@ import ItemList from '../components/ItemList';
 import SubitemList from '../components/SubitemList';
 import SubitemEntryForm from '../components/SubitemEntryForm';
 import InvoicePreview from '../components/InvoicePreview';
+import ProjectDetailsView from '../components/ProjectDetailsView';
 import { mockContracts } from '../data/mockContracts';
 import { Contract, ContractSubitem, QuantityEntry, InvoiceItem } from '../types/contract';
 import { formatINR } from '../utils/currency';
@@ -37,6 +38,7 @@ const VendorDashboard: React.FC = () => {
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'ready' | 'submitted'>('all');
+  const [expandedProjectItems, setExpandedProjectItems] = useState<string[]>([]);
 
   // Stats calculations
   const totalContracts = contracts.length;
@@ -65,6 +67,14 @@ const VendorDashboard: React.FC = () => {
     setSelectedSubitems([]);
   };
 
+  const handleToggleProjectItem = (itemId: string) => {
+    setExpandedProjectItems(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
   const handleToggleSubitemSelection = (subitemId: string) => {
     setSelectedSubitems(prev => 
       prev.includes(subitemId)
@@ -78,17 +88,57 @@ const VendorDashboard: React.FC = () => {
     entry: Omit<QuantityEntry, 'id' | 'createdAt'>, 
     isDraft: boolean
   ) => {
-    // Mock saving - in real implementation, this would call an API
     console.log('Saving entry:', { subitemId, entry, isDraft });
     
-    // Update the subitem's completed quantity and status
-    // This is a simplified mock implementation
     toast({
       title: isDraft ? "Draft Saved" : "Entry Submitted",
       description: isDraft 
         ? "Your progress has been saved as draft"
         : "Your entry has been submitted for review"
     });
+  };
+
+  const handleAddSubitem = (itemId: string) => {
+    console.log('Adding new subitem to item:', itemId);
+    
+    // Create a mock subitem for the form
+    const mockSubitem: ContractSubitem = {
+      id: `new-${Date.now()}`,
+      itemId: itemId,
+      name: 'New Subitem',
+      description: 'Enter subitem description',
+      totalQuantity: 0,
+      completedQuantity: 0,
+      unit: 'units',
+      rate: 0,
+      status: 'draft',
+      lastUpdated: new Date().toISOString(),
+      entries: []
+    };
+    
+    setEditingSubitem(mockSubitem);
+    
+    toast({
+      title: "Adding New Subitem",
+      description: "Please fill in the subitem details"
+    });
+  };
+
+  const handleEditSubitem = (subitemId: string, itemId: string) => {
+    // Find the subitem to edit
+    const contract = contracts.find(c => 
+      c.items.some(i => i.subitems.some(s => s.id === subitemId))
+    );
+    
+    if (contract) {
+      const item = contract.items.find(i => i.subitems.some(s => s.id === subitemId));
+      if (item) {
+        const subitem = item.subitems.find(s => s.id === subitemId);
+        if (subitem) {
+          setEditingSubitem(subitem);
+        }
+      }
+    }
   };
 
   const handleGenerateInvoice = () => {
@@ -130,7 +180,6 @@ const VendorDashboard: React.FC = () => {
   };
 
   const handleSubmitInvoice = () => {
-    // Mock invoice submission
     console.log('Submitting invoice for items:', getInvoiceItems());
     setSelectedSubitems([]);
   };
@@ -157,6 +206,39 @@ const VendorDashboard: React.FC = () => {
     }
     
     return subitems;
+  };
+
+  // Convert contracts to project format for ProjectDetailsView
+  const getProjectFromContract = (contract: Contract) => {
+    return {
+      id: contract.id,
+      name: contract.projectName,
+      company: contract.clientName,
+      location: contract.location,
+      dateRange: `${contract.startDate} - ${contract.endDate}`,
+      totalValue: contract.totalValue,
+      status: contract.status as 'active' | 'completed',
+      items: contract.items.map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        progress: Math.round((item.subitems.reduce((sum, s) => sum + s.completedQuantity, 0) / 
+                            item.subitems.reduce((sum, s) => sum + s.totalQuantity, 1)) * 100),
+        pricePerUnit: item.rate,
+        unit: item.unit,
+        status: 'ready' as const,
+        subitems: item.subitems.map(subitem => ({
+          id: subitem.id,
+          name: subitem.name,
+          description: subitem.description,
+          total: subitem.totalQuantity,
+          completed: subitem.completedQuantity,
+          rate: subitem.rate,
+          value: subitem.completedQuantity * subitem.rate,
+          status: subitem.status as 'ready' | 'submitted' | 'draft'
+        }))
+      }))
+    };
   };
 
   return (
@@ -223,79 +305,15 @@ const VendorDashboard: React.FC = () => {
               
               {contracts.map((contract) => (
                 <div key={contract.id} className="space-y-4">
-                  <ContractCard
-                    contract={contract}
-                    onExpand={handleExpandContract}
-                    isExpanded={expandedContract === contract.id}
+                  {/* Use ProjectDetailsView for better UI */}
+                  <ProjectDetailsView
+                    project={getProjectFromContract(contract)}
+                    expandedItems={expandedProjectItems}
+                    onToggleItem={handleToggleProjectItem}
+                    onEditSubitem={handleEditSubitem}
+                    onAddSubitem={handleAddSubitem}
+                    userRole="vendor"
                   />
-                  
-                  {/* Expanded Contract Items */}
-                  {expandedContract === contract.id && (
-                    <div className="ml-6 space-y-4">
-                      <h3 className="text-lg font-medium">Project Items</h3>
-                      <ItemList
-                        items={contract.items}
-                        expandedItem={expandedItem}
-                        onExpandItem={handleExpandItem}
-                      />
-                      
-                      {/* Expanded Item Subitems */}
-                      {expandedItem && (
-                        <div className="ml-6 space-y-4">
-                          {/* Search and Filter */}
-                          <div className="flex gap-4 items-center">
-                            <div className="relative flex-1">
-                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                              <Input
-                                placeholder="Search subitems..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10"
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant={filterStatus === 'all' ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setFilterStatus('all')}
-                              >
-                                All
-                              </Button>
-                              <Button
-                                variant={filterStatus === 'draft' ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setFilterStatus('draft')}
-                              >
-                                Draft
-                              </Button>
-                              <Button
-                                variant={filterStatus === 'ready' ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setFilterStatus('ready')}
-                              >
-                                Ready
-                              </Button>
-                              <Button
-                                variant={filterStatus === 'submitted' ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setFilterStatus('submitted')}
-                              >
-                                Submitted
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <h4 className="text-md font-medium">Subitems</h4>
-                          <SubitemList
-                            subitems={getFilteredSubitems()}
-                            selectedSubitems={selectedSubitems}
-                            onToggleSelection={handleToggleSubitemSelection}
-                            onEditSubitem={setEditingSubitem}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>

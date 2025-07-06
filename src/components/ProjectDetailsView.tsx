@@ -75,7 +75,7 @@ const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
     }
   };
 
-  const canEdit = userRole === 'level1' || userRole === 'level2' || userRole === 'level3';
+  const canEdit = userRole === 'level1' || userRole === 'level2' || userRole === 'level3' || userRole === 'vendor';
 
   return (
     <div className="bg-white rounded-lg border border-blue-200 p-4 mb-4">
@@ -185,7 +185,7 @@ const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-1">
-                              <h7 className="text-sm font-medium text-gray-900">{subitem.name}</h7>
+                              <h6 className="text-sm font-medium text-gray-900">{subitem.name}</h6>
                               <Badge className={getStatusColor(subitem.status)} variant="outline">
                                 {subitem.status}
                               </Badge>
