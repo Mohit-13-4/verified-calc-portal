@@ -2,23 +2,19 @@
 import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   FileText, 
-  Eye, 
   CheckCircle, 
   AlertCircle, 
   Clock, 
   DollarSign,
-  TrendingUp,
-  Users,
   Building
 } from 'lucide-react';
-import SubmissionDetailsDialog from '../components/SubmissionDetailsDialog';
+import SubmissionDropdown from '../components/SubmissionDropdown';
 import { formatINR } from '../utils/currency';
+import { useToast } from "@/hooks/use-toast";
 
 interface Submission {
   id: string;
@@ -34,8 +30,14 @@ interface Submission {
   description: string;
   formula: string;
   values: Record<string, number>;
+  originalValues?: Record<string, number>;
+  l1EditedValues?: Record<string, number>;
+  l2EditedValues?: Record<string, number>;
   result: number;
   erpReady: boolean;
+  l1Comment?: string;
+  l2Comment?: string;
+  rejectionComment?: string;
 }
 
 const mockSubmissions: Submission[] = [
@@ -53,8 +55,13 @@ const mockSubmissions: Submission[] = [
     description: 'Complete material cost analysis for Q4 construction work',
     formula: 'Material Cost + Labor + Overhead',
     values: { Block1: 10.5, Block2: 8.2, Block3: 6.0 },
+    originalValues: { Block1: 10.0, Block2: 8.0, Block3: 6.0 },
+    l1EditedValues: { Block1: 10.2, Block2: 8.1, Block3: 6.0 },
+    l2EditedValues: { Block1: 10.5, Block2: 8.2, Block3: 6.0 },
     result: 2500000,
-    erpReady: true
+    erpReady: true,
+    l1Comment: 'Adjusted Block1 and Block2 values based on site verification',
+    l2Comment: 'Further refined values after quality assessment'
   },
   {
     id: '2',
@@ -70,8 +77,13 @@ const mockSubmissions: Submission[] = [
     description: 'Foundation concrete and steel reinforcement calculations',
     formula: 'Concrete Volume × Rate + Steel Weight × Rate',
     values: { ConcreteVolume: 450, SteelWeight: 12.5 },
+    originalValues: { ConcreteVolume: 420, SteelWeight: 12.0 },
+    l1EditedValues: { ConcreteVolume: 435, SteelWeight: 12.2 },
+    l2EditedValues: { ConcreteVolume: 450, SteelWeight: 12.5 },
     result: 1800000,
-    erpReady: false
+    erpReady: false,
+    l1Comment: 'Updated quantities based on latest measurements',
+    l2Comment: 'Final validation completed, ready for L3 approval'
   },
   {
     id: '3',
@@ -87,8 +99,11 @@ const mockSubmissions: Submission[] = [
     description: 'Residential building construction cost estimation',
     formula: 'Built-up Area × Rate per sq.ft',
     values: { BuiltUpArea: 8000, RatePerSqFt: 400 },
+    originalValues: { BuiltUpArea: 7800, RatePerSqFt: 380 },
+    l1EditedValues: { BuiltUpArea: 8000, RatePerSqFt: 400 },
     result: 3200000,
-    erpReady: false
+    erpReady: false,
+    l1Comment: 'Corrected area calculation and updated rate as per latest schedule'
   },
   {
     id: '4',
@@ -106,62 +121,103 @@ const mockSubmissions: Submission[] = [
     values: { Equipment: 2800000, Installation: 900000, CivilWork: 800000 },
     result: 4500000,
     erpReady: false
-  },
-  {
-    id: '5',
-    trackingNumber: 'CALC-005',
-    vendor: 'RST Enterprises',
-    vendorName: 'RST Enterprises',
-    projectName: 'Commercial Complex - Tower B',
-    submissionDate: '2025-01-01',
-    submittedAt: '2025-01-01',
-    status: 'pending',
-    totalAmount: 5800000,
-    completionPercentage: 25,
-    description: 'Commercial building structural design and cost analysis',
-    formula: 'Structural Steel + Concrete + Labor',
-    values: { StructuralSteel: 2500000, Concrete: 2000000, Labor: 1300000 },
-    result: 5800000,
-    erpReady: false
   }
 ];
 
 const CompanyDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
+  const { toast } = useToast();
+  const [submissions, setSubmissions] = useState<Submission[]>(mockSubmissions);
   const [selectedTab, setSelectedTab] = useState('pending');
-
-  const submissions = mockSubmissions;
+  const [expandedSubmission, setExpandedSubmission] = useState<string | null>(null);
 
   const pendingSubmissions = submissions.filter(s => s.status !== 'approved' && s.status !== 'rejected');
   const approvedSubmissions = submissions.filter(s => s.status === 'approved');
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      pending: { color: 'bg-yellow-500', text: 'Pending' },
-      l1_reviewed: { color: 'bg-blue-500', text: 'Reviewed' },
-      l2_reviewed: { color: 'bg-purple-500', text: 'Validated' },
-      approved: { color: 'bg-green-500', text: 'Approved' },
-      rejected: { color: 'bg-red-500', text: 'Rejected' }
-    };
-    
-    const config = statusConfig[status as keyof typeof statusConfig];
-    return (
-      <Badge className={`${config.color} text-white hover:${config.color}/80`}>
-        {config.text}
-      </Badge>
-    );
+  const handleToggleSubmission = (submissionId: string) => {
+    setExpandedSubmission(expandedSubmission === submissionId ? null : submissionId);
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved': return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'rejected': return <AlertCircle className="h-4 w-4 text-red-600" />;
-      case 'pending': return <Clock className="h-4 w-4 text-yellow-600" />;
-      case 'l1_reviewed': return <CheckCircle className="h-4 w-4 text-blue-600" />;
-      case 'l2_reviewed': return <CheckCircle className="h-4 w-4 text-purple-600" />;
-      default: return <FileText className="h-4 w-4 text-gray-600" />;
-    }
+  const handleEditValues = (submissionId: string, updatedValues: Record<string, number>, comment: string) => {
+    setSubmissions(prev => prev.map(submission => {
+      if (submission.id === submissionId) {
+        const updated = { ...submission };
+        
+        // Store original values if not already stored
+        if (!updated.originalValues) {
+          updated.originalValues = { ...submission.values };
+        }
+        
+        // Update values based on user role
+        if (user?.role === 'level1') {
+          updated.l1EditedValues = updatedValues;
+          updated.l1Comment = comment;
+          updated.values = updatedValues;
+          updated.status = 'l1_reviewed';
+        } else if (user?.role === 'level2') {
+          updated.l2EditedValues = updatedValues;
+          updated.l2Comment = comment;
+          updated.values = updatedValues;
+          updated.status = 'l2_reviewed';
+        } else if (user?.role === 'level3') {
+          updated.values = updatedValues;
+          updated.status = 'approved';
+        }
+        
+        return updated;
+      }
+      return submission;
+    }));
+
+    toast({
+      title: "Values Updated",
+      description: `Submission ${submissionId} has been updated successfully.`
+    });
+  };
+
+  const handleApprove = (submissionId: string, comment: string) => {
+    setSubmissions(prev => prev.map(submission => {
+      if (submission.id === submissionId) {
+        const updated = { ...submission };
+        
+        if (user?.role === 'level1') {
+          updated.status = 'l1_reviewed';
+          updated.l1Comment = comment;
+        } else if (user?.role === 'level2') {
+          updated.status = 'l2_reviewed';
+          updated.l2Comment = comment;
+        } else if (user?.role === 'level3') {
+          updated.status = 'approved';
+        }
+        
+        return updated;
+      }
+      return submission;
+    }));
+
+    toast({
+      title: "Submission Approved",
+      description: `Submission ${submissionId} has been approved.`
+    });
+  };
+
+  const handleReject = (submissionId: string, comment: string) => {
+    setSubmissions(prev => prev.map(submission => {
+      if (submission.id === submissionId) {
+        return {
+          ...submission,
+          status: 'rejected' as const,
+          rejectionComment: comment
+        };
+      }
+      return submission;
+    }));
+
+    toast({
+      title: "Submission Rejected",
+      description: `Submission ${submissionId} has been rejected.`,
+      variant: "destructive"
+    });
   };
 
   const getRoleTitle = (role: string) => {
@@ -173,9 +229,20 @@ const CompanyDashboard: React.FC = () => {
     return roleMap[role as keyof typeof roleMap] || role;
   };
 
-  const totalValue = submissions.reduce((sum, s) => sum + s.totalAmount, 0);
-  const approvedValue = submissions.filter(s => s.status === 'approved').reduce((sum, s) => sum + s.totalAmount, 0);
-  const pendingValue = submissions.filter(s => s.status !== 'approved' && s.status !== 'rejected').reduce((sum, s) => sum + s.totalAmount, 0);
+  const getFinalAmount = (submission: Submission) => {
+    // Always show the amount from the highest approval level available
+    if (submission.l2EditedValues) {
+      return Object.values(submission.l2EditedValues).reduce((sum, val) => sum + val, 0);
+    }
+    if (submission.l1EditedValues) {
+      return Object.values(submission.l1EditedValues).reduce((sum, val) => sum + val, 0);
+    }
+    return submission.result || 0;
+  };
+
+  const totalValue = submissions.reduce((sum, s) => sum + getFinalAmount(s), 0);
+  const approvedValue = submissions.filter(s => s.status === 'approved').reduce((sum, s) => sum + getFinalAmount(s), 0);
+  const pendingValue = submissions.filter(s => s.status !== 'approved' && s.status !== 'rejected').reduce((sum, s) => sum + getFinalAmount(s), 0);
 
   return (
     <Layout title={`${getRoleTitle(user?.role || '')} Dashboard`}>
@@ -264,42 +331,15 @@ const CompanyDashboard: React.FC = () => {
                     </thead>
                     <tbody>
                       {pendingSubmissions.map((submission) => (
-                        <tr key={submission.id} className="border-b hover:bg-gray-50">
-                          <td className="p-4">
-                            <div className="flex items-center space-x-2">
-                              {getStatusIcon(submission.status)}
-                              <span className="font-medium">{submission.trackingNumber}</span>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center space-x-2">
-                              <Building className="h-4 w-4 text-gray-400" />
-                              <span>{submission.vendorName}</span>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div>
-                              <div className="font-medium">{submission.projectName}</div>
-                              <div className="text-sm text-gray-500 truncate max-w-xs">
-                                {submission.description}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-4 font-medium">{formatINR(submission.totalAmount)}</td>
-                          <td className="p-4">{getStatusBadge(submission.status)}</td>
-                          <td className="p-4 text-sm text-gray-500">{submission.submissionDate}</td>
-                          <td className="p-4">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedSubmission(submission)}
-                              className="flex items-center space-x-1"
-                            >
-                              <Eye className="h-4 w-4" />
-                              <span>Review</span>
-                            </Button>
-                          </td>
-                        </tr>
+                        <SubmissionDropdown
+                          key={submission.id}
+                          submission={submission}
+                          isExpanded={expandedSubmission === submission.id}
+                          onToggle={() => handleToggleSubmission(submission.id)}
+                          onApprove={handleApprove}
+                          onReject={handleReject}
+                          onEditValues={handleEditValues}
+                        />
                       ))}
                     </tbody>
                   </table>
@@ -322,52 +362,12 @@ const CompanyDashboard: React.FC = () => {
                     </thead>
                     <tbody>
                       {approvedSubmissions.map((submission) => (
-                        <tr key={submission.id} className="border-b hover:bg-gray-50">
-                          <td className="p-4">
-                            <div className="flex items-center space-x-2">
-                              {getStatusIcon(submission.status)}
-                              <span className="font-medium">{submission.trackingNumber}</span>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center space-x-2">
-                              <Building className="h-4 w-4 text-gray-400" />
-                              <span>{submission.vendorName}</span>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div>
-                              <div className="font-medium">{submission.projectName}</div>
-                              <div className="text-sm text-gray-500 truncate max-w-xs">
-                                {submission.description}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-4 font-medium">{formatINR(submission.totalAmount)}</td>
-                          <td className="p-4">{getStatusBadge(submission.status)}</td>
-                          <td className="p-4">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-20 bg-gray-200 rounded-full h-2">
-                                <div 
-                                  className="bg-green-600 h-2 rounded-full" 
-                                  style={{ width: `${submission.completionPercentage}%` }}
-                                ></div>
-                              </div>
-                              <span className="text-sm font-medium">{submission.completionPercentage}%</span>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedSubmission(submission)}
-                              className="flex items-center space-x-1"
-                            >
-                              <Eye className="h-4 w-4" />
-                              <span>View</span>
-                            </Button>
-                          </td>
-                        </tr>
+                        <SubmissionDropdown
+                          key={submission.id}
+                          submission={submission}
+                          isExpanded={expandedSubmission === submission.id}
+                          onToggle={() => handleToggleSubmission(submission.id)}
+                        />
                       ))}
                     </tbody>
                   </table>
@@ -390,42 +390,15 @@ const CompanyDashboard: React.FC = () => {
                     </thead>
                     <tbody>
                       {submissions.map((submission) => (
-                        <tr key={submission.id} className="border-b hover:bg-gray-50">
-                          <td className="p-4">
-                            <div className="flex items-center space-x-2">
-                              {getStatusIcon(submission.status)}
-                              <span className="font-medium">{submission.trackingNumber}</span>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center space-x-2">
-                              <Building className="h-4 w-4 text-gray-400" />
-                              <span>{submission.vendorName}</span>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div>
-                              <div className="font-medium">{submission.projectName}</div>
-                              <div className="text-sm text-gray-500 truncate max-w-xs">
-                                {submission.description}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-4 font-medium">{formatINR(submission.totalAmount)}</td>
-                          <td className="p-4">{getStatusBadge(submission.status)}</td>
-                          <td className="p-4 text-sm text-gray-500">{submission.submissionDate}</td>
-                          <td className="p-4">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedSubmission(submission)}
-                              className="flex items-center space-x-1"
-                            >
-                              <Eye className="h-4 w-4" />
-                              <span>View</span>
-                            </Button>
-                          </td>
-                        </tr>
+                        <SubmissionDropdown
+                          key={submission.id}
+                          submission={submission}
+                          isExpanded={expandedSubmission === submission.id}
+                          onToggle={() => handleToggleSubmission(submission.id)}
+                          onApprove={handleApprove}
+                          onReject={handleReject}
+                          onEditValues={handleEditValues}
+                        />
                       ))}
                     </tbody>
                   </table>
@@ -435,19 +408,6 @@ const CompanyDashboard: React.FC = () => {
           </CardContent>
         </Card>
       </div>
-
-      {/* Submission Details Dialog */}
-      {selectedSubmission && (
-        <SubmissionDetailsDialog
-          submission={selectedSubmission}
-          open={!!selectedSubmission}
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedSubmission(null);
-            }
-          }}
-        />
-      )}
     </Layout>
   );
 };
