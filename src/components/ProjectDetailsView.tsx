@@ -185,7 +185,7 @@ const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-1">
-                              <h7 className="text-sm font-medium text-gray-900">{subitem.name}</h7>
+                              <div className="text-sm font-medium text-gray-900">{subitem.name}</div>
                               <Badge className={getStatusColor(subitem.status)} variant="outline">
                                 {subitem.status}
                               </Badge>

@@ -16,23 +16,17 @@ import { Badge } from "@/components/ui/badge";
 import { Calculator, Save, X } from 'lucide-react';
 
 interface ValueEditDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  submission: any;
-  userRole: string;
-  onSave: (submissionId: string, updatedValues: Record<string, number>, comment: string) => void;
+  values: Record<string, number>;
+  onSave: (updatedValues: Record<string, number>, comment: string) => void;
+  onCancel: () => void;
 }
 
 const ValueEditDialog: React.FC<ValueEditDialogProps> = ({
-  open,
-  onOpenChange,
-  submission,
-  userRole,
-  onSave
+  values,
+  onSave,
+  onCancel
 }) => {
-  const [editedValues, setEditedValues] = useState<Record<string, number>>(
-    submission?.values || {}
-  );
+  const [editedValues, setEditedValues] = useState<Record<string, number>>(values);
   const [comment, setComment] = useState('');
 
   const handleValueChange = (key: string, value: string) => {
@@ -44,44 +38,20 @@ const ValueEditDialog: React.FC<ValueEditDialogProps> = ({
   };
 
   const handleSave = () => {
-    onSave(submission.id, editedValues, comment);
-    onOpenChange(false);
+    onSave(editedValues, comment);
     setComment('');
   };
 
-  const getLevelColor = () => {
-    switch (userRole) {
-      case 'level1': return 'bg-blue-100 text-blue-800';
-      case 'level2': return 'bg-purple-100 text-purple-800';
-      case 'level3': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getLevelTitle = () => {
-    switch (userRole) {
-      case 'level1': return 'Level 1 Review';
-      case 'level2': return 'Level 2 Validation';
-      case 'level3': return 'Level 3 Approval';
-      default: return 'Edit Values';
-    }
-  };
-
-  if (!submission) return null;
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <Calculator className="h-5 w-5" />
             <span>Edit Submission Values</span>
-            <Badge className={getLevelColor()}>
-              {getLevelTitle()}
-            </Badge>
           </DialogTitle>
           <DialogDescription>
-            Modify the values for submission {submission.id}
+            Modify the values for this submission
           </DialogDescription>
         </DialogHeader>
 
@@ -106,7 +76,7 @@ const ValueEditDialog: React.FC<ValueEditDialogProps> = ({
             <Label htmlFor="comment">Comment (Required)</Label>
             <Textarea
               id="comment"
-              placeholder={`Enter your ${userRole} review comment...`}
+              placeholder="Enter your review comment..."
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={3}
@@ -115,7 +85,7 @@ const ValueEditDialog: React.FC<ValueEditDialogProps> = ({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={onCancel}>
             <X className="h-4 w-4 mr-2" />
             Cancel
           </Button>

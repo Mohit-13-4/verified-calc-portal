@@ -14,17 +14,13 @@ import { Label } from "@/components/ui/label";
 import { AlertTriangle } from 'lucide-react';
 
 interface RejectionDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   onConfirm: (comment: string) => void;
-  loading?: boolean;
+  onCancel: () => void;
 }
 
 const RejectionDialog: React.FC<RejectionDialogProps> = ({
-  open,
-  onOpenChange,
   onConfirm,
-  loading = false
+  onCancel
 }) => {
   const [comment, setComment] = useState('');
 
@@ -37,11 +33,11 @@ const RejectionDialog: React.FC<RejectionDialogProps> = ({
 
   const handleCancel = () => {
     setComment('');
-    onOpenChange(false);
+    onCancel();
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={true} onOpenChange={(open) => !open && handleCancel()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
@@ -68,15 +64,15 @@ const RejectionDialog: React.FC<RejectionDialogProps> = ({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleCancel} disabled={loading}>
+          <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={!comment.trim() || loading}
+            disabled={!comment.trim()}
             className="bg-red-600 hover:bg-red-700"
           >
-            {loading ? "Rejecting..." : "Reject Submission"}
+            Reject Submission
           </Button>
         </DialogFooter>
       </DialogContent>

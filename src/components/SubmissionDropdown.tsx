@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -320,16 +319,19 @@ const SubmissionDropdown: React.FC<SubmissionDropdownProps> = ({
       {/* Dialogs */}
       {showValueEditDialog && (
         <ValueEditDialog
-          values={submission.values}
+          open={showValueEditDialog}
+          onOpenChange={setShowValueEditDialog}
+          submission={submission}
+          userRole={user?.role || ''}
           onSave={handleEditValues}
-          onCancel={() => setShowValueEditDialog(false)}
         />
       )}
 
       {showRejectDialog && (
         <RejectionDialog
+          open={showRejectDialog}
+          onOpenChange={setShowRejectDialog}
           onConfirm={handleReject}
-          onCancel={() => setShowRejectDialog(false)}
         />
       )}
     </div>
