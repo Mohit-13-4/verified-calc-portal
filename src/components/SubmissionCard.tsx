@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -169,12 +168,12 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
     }
   };
 
-  const handleValueEdit = async (submissionId: string, newValues: Record<string, number>, comment: string) => {
+  const handleValueEdit = async (newValues: Record<string, number>, comment: string) => {
     setLoading(true);
     try {
-      console.log(`Editing values for submission ${submissionId}:`, newValues);
+      console.log(`Editing values for submission ${submission.id}:`, newValues);
       
-      await workflowAPI.updateSubmissionStatus(submissionId, {
+      await workflowAPI.updateSubmissionStatus(submission.id, {
         editedValues: newValues,
         editComment: comment
       });
@@ -184,7 +183,7 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
         description: "The submission values have been updated. Changes are tracked for the next level.",
       });
       
-      onStatusChange?.(submissionId, submission.status);
+      onStatusChange?.(submission.id, submission.status);
       setShowValueEditDialog(false);
       
     } catch (error) {
@@ -342,6 +341,7 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
 
   return (
     <>
+      
       <Card className="w-full">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -360,7 +360,8 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Work Completion Progress */}
+          
+          
           <div className="bg-gray-50 p-4 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-2">

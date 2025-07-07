@@ -16,17 +16,36 @@ import { Badge } from "@/components/ui/badge";
 import { Calculator, Save, X } from 'lucide-react';
 
 interface ValueEditDialogProps {
-  values: Record<string, number>;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  submission: {
+    values: Record<string, number>;
+    l1EditedValues?: Record<string, number>;
+    l2EditedValues?: Record<string, number>;
+  };
+  userRole: string;
   onSave: (updatedValues: Record<string, number>, comment: string) => void;
-  onCancel: () => void;
 }
 
 const ValueEditDialog: React.FC<ValueEditDialogProps> = ({
-  values,
-  onSave,
-  onCancel
+  open,
+  onOpenChange,
+  submission,
+  userRole,
+  onSave
 }) => {
-  const [editedValues, setEditedValues] = useState<Record<string, number>>(values);
+  // Use the most recent values based on user role
+  const getCurrentValues = () => {
+    if (userRole === 'level3' && submission.l2EditedValues) {
+      return submission.l2EditedValues;
+    }
+    if ((userRole === 'level2' || userRole === 'level3') && submission.l1EditedValues) {
+      return submission.l1EditedValues;
+    }
+    return submission.values;
+  };
+
+  const [editedValues, setEditedValues] = useState<Record<string, number>>(getCurrentValues());
   const [comment, setComment] = useState('');
 
   const handleValueChange = (key: string, value: string) => {
@@ -40,10 +59,17 @@ const ValueEditDialog: React.FC<ValueEditDialogProps> = ({
   const handleSave = () => {
     onSave(editedValues, comment);
     setComment('');
+    onOpenChange(false);
+  };
+
+  const handleCancel = () => {
+    setEditedValues(getCurrentValues());
+    setComment('');
+    onOpenChange(false);
   };
 
   return (
-    <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
@@ -51,7 +77,7 @@ const ValueEditDialog: React.FC<ValueEditDialogProps> = ({
             <span>Edit Submission Values</span>
           </DialogTitle>
           <DialogDescription>
-            Modify the values for this submission
+            Modify the values for this submission as {userRole}
           </DialogDescription>
         </DialogHeader>
 
@@ -85,7 +111,7 @@ const ValueEditDialog: React.FC<ValueEditDialogProps> = ({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={handleCancel}>
             <X className="h-4 w-4 mr-2" />
             Cancel
           </Button>
