@@ -1,342 +1,337 @@
 
 import React, { useState } from 'react';
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuTrigger,
-  DropdownMenuItem
-} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { 
   ChevronDown, 
   ChevronRight, 
-  Package, 
-  Edit, 
-  Check, 
-  X, 
-  AlertCircle,
-  Plus
+  Eye, 
+  CheckCircle, 
+  XCircle, 
+  Pencil,
+  Building
 } from 'lucide-react';
 import { formatINR } from '../utils/currency';
 import ValueEditDialog from './ValueEditDialog';
 import RejectionDialog from './RejectionDialog';
-import SubitemEntryForm from './SubitemEntryForm';
-import { ContractSubitem } from '../types/contract';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Submission {
   id: string;
   trackingNumber: string;
-  contractName: string;
+  vendor: string;
   vendorName: string;
+  projectName: string;
   submissionDate: string;
-  status: 'pending' | 'approved' | 'rejected';
-  totalValue: number;
-  items: SubmissionItem[];
-}
-
-interface SubmissionItem {
-  id: string;
-  name: string;
+  submittedAt: string;
+  status: 'pending' | 'l1_reviewed' | 'l2_reviewed' | 'approved' | 'rejected';
+  totalAmount: number;
+  completionPercentage: number;
   description: string;
-  unit: string;
-  subitems: SubmissionSubitem[];
-}
-
-interface SubmissionSubitem {
-  id: string;
-  name: string;
-  description: string;
-  totalQuantity: number;
-  submittedQuantity: number;
-  approvedQuantity?: number;
-  rate: number;
-  unit: string;
-  status: 'pending' | 'approved' | 'rejected';
-  value: number;
-  attachments?: string[];
-  notes?: string;
+  formula: string;
+  values: Record<string, number>;
+  originalValues?: Record<string, number>;
+  l1EditedValues?: Record<string, number>;
+  l2EditedValues?: Record<string, number>;
+  result: number;
+  erpReady: boolean;
+  l1Comment?: string;
+  l2Comment?: string;
+  rejectionComment?: string;
 }
 
 interface SubmissionDropdownProps {
   submission: Submission;
-  onApprove: (submissionId: string, updatedValues: Record<string, number>, comment: string) => void;
-  onReject: (submissionId: string, comment: string) => void;
-  userRole: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onApprove?: (submissionId: string, comment: string) => void;
+  onReject?: (submissionId: string, comment: string) => void;
+  onEditValues?: (submissionId: string, updatedValues: Record<string, number>, comment: string) => void;
+  onShowDetails?: () => void;
 }
 
 const SubmissionDropdown: React.FC<SubmissionDropdownProps> = ({
   submission,
+  isExpanded,
+  onToggle,
   onApprove,
   onReject,
-  userRole
+  onEditValues,
+  onShowDetails
 }) => {
-  const [expandedItems, setExpandedItems] = useState<string[]>([]);
-  const [editingValue, setEditingValue] = useState<{
-    subitemId: string;
-    currentValue: number;
-    maxValue: number;
-  } | null>(null);
-  const [showRejectionDialog, setShowRejectionDialog] = useState(false);
-  const [editingSubitem, setEditingSubitem] = useState<ContractSubitem | null>(null);
-
-  const toggleItemExpansion = (itemId: string) => {
-    setExpandedItems(prev => 
-      prev.includes(itemId) 
-        ? prev.filter(id => id !== itemId)
-        : [...prev, itemId]
-    );
-  };
+  const { user } = useAuth();
+  const [showValueEditDialog, setShowValueEditDialog] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'l1_reviewed':
+        return 'bg-blue-100 text-blue-800';
+      case 'l2_reviewed':
+        return 'bg-purple-100 text-purple-800';
+      case 'approved':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const canEdit = userRole === 'level1' || userRole === 'level2' || userRole === 'level3';
-  const canApprove = userRole === 'level1' || userRole === 'level2' || userRole === 'level3';
-
-  const handleValueEdit = (subitemId: string, currentValue: number, maxValue: number) => {
-    setEditingValue({ subitemId, currentValue, maxValue });
-  };
-
-  const handleValueSave = (newValue: number) => {
-    if (editingValue) {
-      const updatedValues = { [editingValue.subitemId]: newValue };
-      onApprove(submission.id, updatedValues, `Updated quantity for subitem ${editingValue.subitemId}`);
-      setEditingValue(null);
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'Pending Review';
+      case 'l1_reviewed':
+        return 'L1 Reviewed';
+      case 'l2_reviewed':
+        return 'L2 Reviewed';
+      case 'approved':
+        return 'Approved';
+      case 'rejected':
+        return 'Rejected';
+      default:
+        return status;
     }
   };
 
-  const handleApprove = () => {
-    onApprove(submission.id, {}, 'Approved submission');
+  const canApprove = () => {
+    if (!user?.role) return false;
+    
+    switch (user.role) {
+      case 'level1':
+        return submission.status === 'pending';
+      case 'level2':
+        return submission.status === 'l1_reviewed';
+      case 'level3':
+        return submission.status === 'l2_reviewed';
+      default:
+        return false;
+    }
+  };
+
+  const canEdit = () => {
+    return canApprove() && onEditValues;
+  };
+
+  const getFinalAmount = () => {
+    if (submission.l2EditedValues) {
+      return Object.values(submission.l2EditedValues).reduce((sum, val) => sum + val, 0);
+    }
+    if (submission.l1EditedValues) {
+      return Object.values(submission.l1EditedValues).reduce((sum, val) => sum + val, 0);
+    }
+    return submission.result || 0;
+  };
+
+  const handleApprove = (comment: string) => {
+    if (onApprove) {
+      onApprove(submission.id, comment);
+    }
   };
 
   const handleReject = (comment: string) => {
-    onReject(submission.id, comment);
-    setShowRejectionDialog(false);
+    if (onReject) {
+      onReject(submission.id, comment);
+    }
+    setShowRejectDialog(false);
   };
 
-  const handleAddSubitem = (itemId: string) => {
-    console.log('Add subitem to item:', itemId);
-    // Mock subitem for demonstration
-    const mockSubitem: ContractSubitem = {
-      id: `new-${Date.now()}`,
-      itemId: itemId,
-      name: 'New Subitem',
-      description: 'New subitem description',
-      totalQuantity: 0,
-      completedQuantity: 0,
-      unit: 'units',
-      rate: 0,
-      status: 'draft',
-      lastUpdated: new Date().toISOString(),
-      entries: []
-    };
-    setEditingSubitem(mockSubitem);
-  };
-
-  const handleSaveSubitemEntry = (
-    subitemId: string, 
-    entry: any, 
-    isDraft: boolean
-  ) => {
-    console.log('Saving subitem entry:', { subitemId, entry, isDraft });
-    setEditingSubitem(null);
+  const handleEditValues = (updatedValues: Record<string, number>, comment: string) => {
+    if (onEditValues) {
+      onEditValues(submission.id, updatedValues, comment);
+    }
+    setShowValueEditDialog(false);
   };
 
   return (
-    <div className="space-y-4">
-      {/* Submission Header */}
-      <div className="bg-white rounded-lg border p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h3 className="text-lg font-semibold">{submission.contractName}</h3>
-            <p className="text-sm text-gray-600">
-              {submission.vendorName} • {submission.trackingNumber}
-            </p>
+    <div className="border rounded-lg hover:bg-gray-50 transition-colors">
+      <div 
+        className="p-4 cursor-pointer"
+        onClick={onToggle}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4 text-gray-400" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-gray-400" />
+            )}
+            <div>
+              <div className="font-medium text-gray-900">{submission.trackingNumber}</div>
+              <div className="text-sm text-gray-600">{submission.vendor}</div>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          
+          <div className="flex items-center space-x-4">
+            <div className="text-right">
+              <div className="font-medium text-gray-900">{submission.projectName}</div>
+              <div className="text-sm text-gray-600">{formatINR(getFinalAmount())}</div>
+            </div>
             <Badge className={getStatusColor(submission.status)}>
-              {submission.status}
+              {getStatusLabel(submission.status)}
             </Badge>
-            <span className="text-sm font-medium">{formatINR(submission.totalValue)}</span>
+            <div className="text-sm text-gray-500">{submission.submittedAt}</div>
           </div>
         </div>
-        
-        <p className="text-xs text-gray-500 mb-3">
-          Submitted: {new Date(submission.submissionDate).toLocaleDateString()}
-        </p>
-
-        {/* Action Buttons */}
-        {canApprove && submission.status === 'pending' && (
-          <div className="flex gap-2">
-            <Button size="sm" onClick={handleApprove}>
-              <Check className="h-4 w-4 mr-1" />
-              Approve
-            </Button>
-            <Button 
-              variant="destructive" 
-              size="sm" 
-              onClick={() => setShowRejectionDialog(true)}
-            >
-              <X className="h-4 w-4 mr-1" />
-              Reject
-            </Button>
-          </div>
-        )}
       </div>
 
-      {/* Submission Items */}
-      <div className="space-y-3">
-        {submission.items.map((item) => (
-          <div key={item.id} className="bg-white rounded-lg border">
-            <div 
-              className="p-4 cursor-pointer hover:bg-gray-50"
-              onClick={() => toggleItemExpansion(item.id)}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Package className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <h4 className="font-medium">{item.name}</h4>
-                    <p className="text-sm text-gray-600">{item.description}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">
-                    {item.subitems.length} subitems
-                  </span>
-                  {expandedItems.includes(item.id) ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                </div>
+      {/* Expanded Content */}
+      {isExpanded && (
+        <div className="border-t bg-gray-50 p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">Submission Details</h4>
+              <div className="space-y-1 text-sm">
+                <div><strong>Description:</strong> {submission.description}</div>
+                <div><strong>Formula:</strong> {submission.formula}</div>
+                <div><strong>Completion:</strong> {submission.completionPercentage}%</div>
               </div>
             </div>
-
-            {/* Expanded Subitems */}
-            {expandedItems.includes(item.id) && (
-              <div className="border-t bg-gray-50 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h5 className="font-medium text-gray-900">Subitems</h5>
-                  {canEdit && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddSubitem(item.id);
-                      }}
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Add Subitem
-                    </Button>
-                  )}
-                </div>
-                
-                <div className="space-y-3">
-                  {item.subitems.map((subitem) => (
-                    <div key={subitem.id} className="bg-white rounded p-3 border">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h6 className="font-medium">{subitem.name}</h6>
-                            <Badge className={getStatusColor(subitem.status)} variant="outline">
-                              {subitem.status}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-gray-600 mb-2">{subitem.description}</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 text-sm mb-2">
-                        <div>
-                          <span className="text-gray-600">Total: </span>
-                          <span className="font-medium">{subitem.totalQuantity} {subitem.unit}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Submitted: </span>
-                          <span className="font-medium">{subitem.submittedQuantity} {subitem.unit}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Rate: </span>
-                          <span className="font-medium">{formatINR(subitem.rate)} per {subitem.unit}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Value: </span>
-                          <span className="font-medium">{formatINR(subitem.value)}</span>
-                        </div>
-                      </div>
-
-                      {canEdit && subitem.status === 'pending' && (
-                        <div className="flex gap-2 mt-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleValueEdit(subitem.id, subitem.submittedQuantity, subitem.totalQuantity)}
-                          >
-                            <Edit className="h-3 w-3 mr-1" />
-                            Edit Quantity
-                          </Button>
-                        </div>
-                      )}
-
-                      {subitem.attachments && subitem.attachments.length > 0 && (
-                        <div className="mt-2 pt-2 border-t">
-                          <p className="text-xs text-gray-600 mb-1">Attachments:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {subitem.attachments.map((attachment, idx) => (
-                              <Badge key={idx} variant="outline" className="text-xs">
-                                {attachment}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {subitem.notes && (
-                        <div className="mt-2 pt-2 border-t">
-                          <p className="text-xs text-gray-600 mb-1">Notes:</p>
-                          <p className="text-xs">{subitem.notes}</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+            
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">Values</h4>
+              <div className="space-y-1 text-sm">
+                {Object.entries(submission.values).map(([key, value]) => (
+                  <div key={key}>
+                    <strong>{key}:</strong> {typeof value === 'number' ? value.toFixed(2) : value}
+                  </div>
+                ))}
               </div>
+            </div>
+          </div>
+
+          {/* Value History */}
+          {(submission.originalValues || submission.l1EditedValues || submission.l2EditedValues) && (
+            <div className="mb-4">
+              <h4 className="font-medium text-gray-900 mb-2">Value History</h4>
+              <div className="space-y-2 text-sm">
+                {submission.originalValues && (
+                  <div className="p-2 bg-gray-100 rounded">
+                    <strong>Original Values:</strong>
+                    <div className="ml-4">
+                      {Object.entries(submission.originalValues).map(([key, value]) => (
+                        <div key={key}>{key}: {value}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {submission.l1EditedValues && (
+                  <div className="p-2 bg-blue-50 rounded">
+                    <strong>L1 Edited Values:</strong>
+                    <div className="ml-4">
+                      {Object.entries(submission.l1EditedValues).map(([key, value]) => (
+                        <div key={key}>{key}: {value}</div>
+                      ))}
+                    </div>
+                    {submission.l1Comment && (
+                      <div className="ml-4 mt-1 text-gray-600">
+                        <strong>L1 Comment:</strong> {submission.l1Comment}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {submission.l2EditedValues && (
+                  <div className="p-2 bg-purple-50 rounded">
+                    <strong>L2 Edited Values:</strong>
+                    <div className="ml-4">
+                      {Object.entries(submission.l2EditedValues).map(([key, value]) => (
+                        <div key={key}>{key}: {value}</div>
+                      ))}
+                    </div>
+                    {submission.l2Comment && (
+                      <div className="ml-4 mt-1 text-gray-600">
+                        <strong>L2 Comment:</strong> {submission.l2Comment}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex space-x-2">
+            {onShowDetails && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShowDetails();
+                }}
+              >
+                <Building className="h-4 w-4 mr-1" />
+                View Project Details
+              </Button>
+            )}
+            
+            {canEdit() && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowValueEditDialog(true);
+                }}
+              >
+                <Pencil className="h-4 w-4 mr-1" />
+                Edit Values
+              </Button>
+            )}
+            
+            {canApprove() && onApprove && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleApprove('');
+                }}
+                className="text-green-600 border-green-600 hover:bg-green-50"
+              >
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Approve
+              </Button>
+            )}
+            
+            {canApprove() && onReject && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowRejectDialog(true);
+                }}
+                className="text-red-600 border-red-600 hover:bg-red-50"
+              >
+                <XCircle className="h-4 w-4 mr-1" />
+                Reject
+              </Button>
             )}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* Dialogs */}
-      <ValueEditDialog
-        isOpen={!!editingValue}
-        currentValue={editingValue?.currentValue || 0}
-        maxValue={editingValue?.maxValue || 0}
-        onSave={handleValueSave}
-        onCancel={() => setEditingValue(null)}
-      />
+      {showValueEditDialog && (
+        <ValueEditDialog
+          values={submission.values}
+          onSave={handleEditValues}
+          onCancel={() => setShowValueEditDialog(false)}
+        />
+      )}
 
-      <RejectionDialog
-        isOpen={showRejectionDialog}
-        onConfirm={handleReject}
-        onClose={() => setShowRejectionDialog(false)}
-      />
-
-      <SubitemEntryForm
-        subitem={editingSubitem}
-        isOpen={!!editingSubitem}
-        onClose={() => setEditingSubitem(null)}
-        onSave={handleSaveSubitemEntry}
-      />
+      {showRejectDialog && (
+        <RejectionDialog
+          onConfirm={handleReject}
+          onCancel={() => setShowRejectDialog(false)}
+        />
+      )}
     </div>
   );
 };
