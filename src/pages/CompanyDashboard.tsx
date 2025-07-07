@@ -215,6 +215,7 @@ const CompanyDashboard: React.FC = () => {
   };
 
   const handleAddSubitem = (itemId: string) => {
+    console.log('Adding subitem to item:', itemId);
     toast({
       title: "Add Subitem",
       description: `Adding new subitem to item ${itemId}`,

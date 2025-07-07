@@ -75,7 +75,14 @@ const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
     }
   };
 
-  const canEdit = userRole === 'level1' || userRole === 'level2' || userRole === 'level3';
+  const canEdit = userRole === 'level1' || userRole === 'level2' || userRole === 'level3' || userRole === 'vendor';
+
+  const handleAddSubitem = (itemId: string, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    console.log('Add subitem clicked for item:', itemId);
+    onAddSubitem(itemId);
+  };
 
   return (
     <div className="bg-white rounded-lg border border-blue-200 p-4 mb-4">
@@ -168,10 +175,8 @@ const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAddSubitem(item.id);
-                        }}
+                        onClick={(e) => handleAddSubitem(item.id, e)}
+                        type="button"
                       >
                         <Plus className="h-3 w-3 mr-1" />
                         Add Subitem
