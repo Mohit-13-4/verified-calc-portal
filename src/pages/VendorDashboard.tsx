@@ -435,9 +435,12 @@ const VendorDashboard: React.FC = () => {
             level: parseInt(history.reviewerRole.replace('level', '')),
             approverName: history.reviewerName,
             timestamp: history.timestamp,
-            status: history.action,
+            status: history.action === 'submitted' ? 'pending' : history.action as 'approved' | 'rejected' | 'modified',
             comment: history.comment,
-            changedValues: history.changedFields
+            changedValues: history.changedFields ? Object.entries(history.changedFields).reduce((acc, [key, value]) => {
+              acc[key] = { before: value.oldValue, after: value.newValue };
+              return acc;
+            }, {} as Record<string, { before: any; after: any }>) : undefined
           }))}
           currentLevel={1}
         />

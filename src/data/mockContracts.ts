@@ -42,7 +42,8 @@ export const mockContracts: Contract[] = [
                 notes: 'Completed section from KM 0-2.5',
                 attachments: ['progress-photo-1.jpg'],
                 createdAt: '2024-01-18T09:00:00Z',
-                isDraft: false
+                isDraft: false,
+                entryDate: '2024-01-18'
               },
               {
                 id: 'entry-2',
@@ -53,7 +54,19 @@ export const mockContracts: Contract[] = [
                 notes: 'Section KM 2.5-4.5 completed',
                 attachments: [],
                 createdAt: '2024-01-20T10:30:00Z',
-                isDraft: true
+                isDraft: true,
+                entryDate: '2024-01-20'
+              }
+            ],
+            approvalHistory: [
+              {
+                id: 'approval-1',
+                subitemId: 'subitem-1',
+                action: 'submitted',
+                reviewerName: 'John Doe',
+                reviewerRole: 'level1',
+                timestamp: '2024-01-19T08:00:00Z',
+                comment: 'Initial submission for review'
               }
             ]
           },
@@ -78,9 +91,11 @@ export const mockContracts: Contract[] = [
                 notes: 'Initial section completed',
                 attachments: ['quality-check.pdf'],
                 createdAt: '2024-01-19T14:15:00Z',
-                isDraft: true
+                isDraft: true,
+                entryDate: '2024-01-19'
               }
-            ]
+            ],
+            approvalHistory: []
           }
         ]
       },
@@ -111,7 +126,22 @@ export const mockContracts: Contract[] = [
                 notes: 'Complete section finished with quality approval',
                 attachments: ['drain-completion.jpg', 'quality-certificate.pdf'],
                 createdAt: '2024-01-21T16:45:00Z',
-                isDraft: false
+                isDraft: false,
+                entryDate: '2024-01-21'
+              }
+            ],
+            approvalHistory: [
+              {
+                id: 'approval-2',
+                subitemId: 'subitem-3',
+                action: 'approved',
+                reviewerName: 'Jane Smith',
+                reviewerRole: 'level2',
+                timestamp: '2024-01-22T09:00:00Z',
+                comment: 'Work quality meets specifications',
+                changedFields: {
+                  'quantity': { oldValue: 2900, newValue: 3000 }
+                }
               }
             ]
           }
@@ -157,9 +187,11 @@ export const mockContracts: Contract[] = [
                 notes: 'Foundation excavation and concrete pouring completed',
                 attachments: ['foundation-progress.jpg'],
                 createdAt: '2024-01-22T11:20:00Z',
-                isDraft: true
+                isDraft: true,
+                entryDate: '2024-01-22'
               }
-            ]
+            ],
+            approvalHistory: []
           },
           {
             id: 'subitem-5',
@@ -172,7 +204,8 @@ export const mockContracts: Contract[] = [
             rate: 6500,
             status: 'draft',
             lastUpdated: '2024-01-15T09:00:00Z',
-            entries: []
+            entries: [],
+            approvalHistory: []
           }
         ]
       }

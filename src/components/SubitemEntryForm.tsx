@@ -86,7 +86,8 @@ const SubitemEntryForm: React.FC<SubitemEntryFormProps> = ({
       breadth: parseFloat(formData.breadth) || undefined,
       notes: formData.notes || undefined,
       attachments: formData.attachments,
-      isDraft
+      isDraft,
+      entryDate: new Date().toISOString().split('T')[0] // Add current date
     };
 
     onSave(subitem.id, entry, isDraft);
