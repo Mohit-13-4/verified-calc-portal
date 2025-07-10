@@ -21,7 +21,10 @@ import ContractCard from '../components/ContractCard';
 import ItemList from '../components/ItemList';
 import SubitemList from '../components/SubitemList';
 import SubitemEntryForm from '../components/SubitemEntryForm';
-import InvoicePreview from '../components/InvoicePreview';
+import EnhancedInvoicePreview from '../components/EnhancedInvoicePreview';
+import SubmissionTracker from '../components/SubmissionTracker';
+import DateWiseEntryForm from '../components/DateWiseEntryForm';
+import ApprovalTimeline from '../components/ApprovalTimeline';
 import { mockContracts } from '../data/mockContracts';
 import { Contract, ContractSubitem, QuantityEntry, InvoiceItem } from '../types/contract';
 import { formatINR } from '../utils/currency';
@@ -34,9 +37,12 @@ const VendorDashboard: React.FC = () => {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [selectedSubitems, setSelectedSubitems] = useState<string[]>([]);
   const [editingSubitem, setEditingSubitem] = useState<ContractSubitem | null>(null);
+  const [addingEntrySubitem, setAddingEntrySubitem] = useState<ContractSubitem | null>(null);
+  const [viewingHistorySubitem, setViewingHistorySubitem] = useState<ContractSubitem | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'ready' | 'submitted'>('all');
+  const [submissionFilter, setSubmissionFilter] = useState<'all' | 'draft' | 'submitted' | 'approved'>('all');
 
   // Stats calculations
   const totalContracts = contracts.length;
@@ -51,8 +57,9 @@ const VendorDashboard: React.FC = () => {
     sum + (s.completedQuantity * s.rate), 0
   );
 
-  const draftEntries = allSubitems.filter(s => s.status === 'draft').length;
-  const submittedEntries = allSubitems.filter(s => s.status === 'submitted').length;
+  const draftCount = allSubitems.filter(s => s.status === 'draft').length;
+  const submittedCount = allSubitems.filter(s => s.status === 'submitted').length;
+  const readyCount = allSubitems.filter(s => s.status === 'ready').length;
 
   const handleExpandContract = (contractId: string) => {
     setExpandedContract(expandedContract === contractId ? null : contractId);
@@ -78,17 +85,22 @@ const VendorDashboard: React.FC = () => {
     entry: Omit<QuantityEntry, 'id' | 'createdAt'>, 
     isDraft: boolean
   ) => {
-    // Mock saving - in real implementation, this would call an API
     console.log('Saving entry:', { subitemId, entry, isDraft });
     
-    // Update the subitem's completed quantity and status
-    // This is a simplified mock implementation
     toast({
       title: isDraft ? "Draft Saved" : "Entry Submitted",
       description: isDraft 
         ? "Your progress has been saved as draft"
         : "Your entry has been submitted for review"
     });
+  };
+
+  const handleAddEntry = (subitem: ContractSubitem) => {
+    setAddingEntrySubitem(subitem);
+  };
+
+  const handleViewHistory = (subitem: ContractSubitem) => {
+    setViewingHistorySubitem(subitem);
   };
 
   const handleGenerateInvoice = () => {
@@ -119,7 +131,8 @@ const VendorDashboard: React.FC = () => {
               totalQuantity: subitem.totalQuantity,
               completedQuantity: subitem.completedQuantity,
               rate: subitem.rate,
-              amount: subitem.completedQuantity * subitem.rate
+              amount: subitem.completedQuantity * subitem.rate,
+              status: subitem.status
             });
           }
         });
@@ -130,7 +143,6 @@ const VendorDashboard: React.FC = () => {
   };
 
   const handleSubmitInvoice = () => {
-    // Mock invoice submission
     console.log('Submitting invoice for items:', getInvoiceItems());
     setSelectedSubitems([]);
   };
@@ -155,8 +167,21 @@ const VendorDashboard: React.FC = () => {
     if (filterStatus !== 'all') {
       subitems = subitems.filter(s => s.status === filterStatus);
     }
+
+    if (submissionFilter !== 'all') {
+      if (submissionFilter === 'approved') {
+        subitems = subitems.filter(s => s.status === 'submitted');
+      } else {
+        subitems = subitems.filter(s => s.status === submissionFilter);
+      }
+    }
     
     return subitems;
+  };
+
+  const getCurrentProjectName = () => {
+    const contract = contracts.find(c => c.id === expandedContract);
+    return contract?.projectName || 'Project';
   };
 
   return (
@@ -203,11 +228,20 @@ const VendorDashboard: React.FC = () => {
               <Clock className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{draftEntries}</div>
-              <p className="text-xs text-muted-foreground">{submittedEntries} submitted</p>
+              <div className="text-2xl font-bold text-orange-600">{draftCount}</div>
+              <p className="text-xs text-muted-foreground">{submittedCount} submitted</p>
             </CardContent>
           </Card>
         </div>
+
+        {/* Submission Tracker */}
+        <SubmissionTracker
+          draftCount={draftCount}
+          submittedCount={submittedCount}
+          approvedCount={readyCount}
+          activeFilter={submissionFilter}
+          onFilterChange={setSubmissionFilter}
+        />
 
         {/* Contract Management */}
         <Tabs defaultValue="contracts" className="space-y-4">
@@ -291,6 +325,8 @@ const VendorDashboard: React.FC = () => {
                             selectedSubitems={selectedSubitems}
                             onToggleSelection={handleToggleSubitemSelection}
                             onEditSubitem={setEditingSubitem}
+                            onViewHistory={handleViewHistory}
+                            onAddEntry={handleAddEntry}
                           />
                         </div>
                       )}
@@ -311,7 +347,7 @@ const VendorDashboard: React.FC = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-orange-600 mb-2">{draftEntries}</div>
+                  <div className="text-3xl font-bold text-orange-600 mb-2">{draftCount}</div>
                   <p className="text-sm text-gray-600">Items saved as draft</p>
                 </CardContent>
               </Card>
@@ -324,9 +360,7 @@ const VendorDashboard: React.FC = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-blue-600 mb-2">
-                    {allSubitems.filter(s => s.status === 'ready').length}
-                  </div>
+                  <div className="text-3xl font-bold text-blue-600 mb-2">{readyCount}</div>
                   <p className="text-sm text-gray-600">Items ready for review</p>
                 </CardContent>
               </Card>
@@ -339,7 +373,7 @@ const VendorDashboard: React.FC = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-green-600 mb-2">{submittedEntries}</div>
+                  <div className="text-3xl font-bold text-green-600 mb-2">{submittedCount}</div>
                   <p className="text-sm text-gray-600">Items under review</p>
                 </CardContent>
               </Card>
@@ -380,12 +414,34 @@ const VendorDashboard: React.FC = () => {
         onSave={handleSaveEntry}
       />
 
-      <InvoicePreview
+      <DateWiseEntryForm
+        subitem={addingEntrySubitem}
+        isOpen={!!addingEntrySubitem}
+        onClose={() => setAddingEntrySubitem(null)}
+        onSave={handleSaveEntry}
+      />
+
+      <EnhancedInvoicePreview
         items={getInvoiceItems()}
         isOpen={showInvoicePreview}
         onClose={() => setShowInvoicePreview(false)}
         onSubmit={handleSubmitInvoice}
+        projectName={getCurrentProjectName()}
       />
+
+      {viewingHistorySubitem && (
+        <ApprovalTimeline
+          steps={viewingHistorySubitem.approvalHistory.map(history => ({
+            level: parseInt(history.reviewerRole.replace('level', '')),
+            approverName: history.reviewerName,
+            timestamp: history.timestamp,
+            status: history.action,
+            comment: history.comment,
+            changedValues: history.changedFields
+          }))}
+          currentLevel={1}
+        />
+      )}
     </Layout>
   );
 };

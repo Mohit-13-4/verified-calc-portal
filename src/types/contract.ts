@@ -34,6 +34,7 @@ export interface ContractSubitem {
   status: 'draft' | 'ready' | 'submitted';
   lastUpdated: string;
   entries: QuantityEntry[];
+  approvalHistory: ApprovalHistoryEntry[];
 }
 
 export interface QuantityEntry {
@@ -46,6 +47,18 @@ export interface QuantityEntry {
   attachments?: string[];
   createdAt: string;
   isDraft: boolean;
+  entryDate: string; // New field for date-wise entries
+}
+
+export interface ApprovalHistoryEntry {
+  id: string;
+  subitemId: string;
+  action: 'submitted' | 'approved' | 'rejected' | 'modified';
+  reviewerName: string;
+  reviewerRole: 'level1' | 'level2' | 'level3';
+  timestamp: string;
+  comment?: string;
+  changedFields?: Record<string, { oldValue: any; newValue: any }>;
 }
 
 export interface InvoiceItem {
@@ -58,4 +71,5 @@ export interface InvoiceItem {
   completedQuantity: number;
   rate: number;
   amount: number;
+  status: 'draft' | 'ready' | 'submitted';
 }

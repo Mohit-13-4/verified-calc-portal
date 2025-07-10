@@ -5,22 +5,27 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { Edit, Clock, CheckCircle } from 'lucide-react';
+import { Edit, Clock, CheckCircle, Calendar, History, Plus } from 'lucide-react';
 import { ContractSubitem } from '../types/contract';
 import { formatINR } from '../utils/currency';
+import { format } from 'date-fns';
 
 interface SubitemListProps {
   subitems: ContractSubitem[];
   selectedSubitems: string[];
   onToggleSelection: (subitemId: string) => void;
   onEditSubitem: (subitem: ContractSubitem) => void;
+  onViewHistory: (subitem: ContractSubitem) => void;
+  onAddEntry: (subitem: ContractSubitem) => void;
 }
 
 const SubitemList: React.FC<SubitemListProps> = ({ 
   subitems, 
   selectedSubitems, 
   onToggleSelection, 
-  onEditSubitem 
+  onEditSubitem,
+  onViewHistory,
+  onAddEntry
 }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -40,6 +45,15 @@ const SubitemList: React.FC<SubitemListProps> = ({
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'submitted': return <Badge className="bg-green-100 text-green-800">🟢 Submitted</Badge>;
+      case 'ready': return <Badge className="bg-blue-100 text-blue-800">🔵 Ready</Badge>;
+      case 'draft': return <Badge className="bg-orange-100 text-orange-800">🟠 Draft</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
   const calculateProgress = (subitem: ContractSubitem) => {
     return subitem.totalQuantity > 0 
       ? Math.round((subitem.completedQuantity / subitem.totalQuantity) * 100) 
@@ -54,11 +68,25 @@ const SubitemList: React.FC<SubitemListProps> = ({
     });
   };
 
+  const getLastEntryDate = (subitem: ContractSubitem) => {
+    if (subitem.entries.length === 0) return null;
+    const sortedEntries = subitem.entries.sort((a, b) => 
+      new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime()
+    );
+    return sortedEntries[0].entryDate;
+  };
+
+  const getDraftEntryCount = (subitem: ContractSubitem) => {
+    return subitem.entries.filter(entry => entry.isDraft).length;
+  };
+
   return (
     <div className="space-y-3">
       {subitems.map((subitem) => {
         const progress = calculateProgress(subitem);
         const isSelected = selectedSubitems.includes(subitem.id);
+        const lastEntryDate = getLastEntryDate(subitem);
+        const draftCount = getDraftEntryCount(subitem);
         
         return (
           <Card key={subitem.id} className={`transition-all hover:shadow-sm ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
@@ -73,20 +101,27 @@ const SubitemList: React.FC<SubitemListProps> = ({
                   <div className="flex-1">
                     <CardTitle className="text-sm font-medium">{subitem.name}</CardTitle>
                     <p className="text-xs text-gray-600 mt-1">{subitem.description}</p>
+                    
+                    {/* Last Entry Date */}
+                    {lastEntryDate && (
+                      <div className="flex items-center gap-1 mt-2">
+                        <Calendar className="h-3 w-3 text-gray-400" />
+                        <span className="text-xs text-gray-500">
+                          Last entry: {format(new Date(lastEntryDate), 'dd MMM yyyy')}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge className={`${getStatusColor(subitem.status)} text-white text-xs flex items-center gap-1`}>
-                    {getStatusIcon(subitem.status)}
-                    {subitem.status}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onEditSubitem(subitem)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  {getStatusBadge(subitem.status)}
+                  
+                  {/* Draft Count Badge */}
+                  {draftCount > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {draftCount} draft{draftCount > 1 ? 's' : ''}
+                    </Badge>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -118,9 +153,41 @@ const SubitemList: React.FC<SubitemListProps> = ({
                 <Progress value={progress} className="h-2" />
               </div>
               
-              <div className="flex justify-between items-center text-xs text-gray-500">
+              {/* Entry Count and Last Updated */}
+              <div className="flex justify-between items-center text-xs text-gray-500 mb-3">
                 <span>Last updated: {formatDate(subitem.lastUpdated)}</span>
                 <span>{subitem.entries.length} entries</span>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onAddEntry(subitem)}
+                  className="flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add Entry
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onViewHistory(subitem)}
+                  className="flex items-center gap-1"
+                >
+                  <History className="h-3 w-3" />
+                  History
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEditSubitem(subitem)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
               </div>
             </CardContent>
           </Card>
