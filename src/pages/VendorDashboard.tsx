@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
 import { Button } from "@/components/ui/button";
@@ -43,6 +42,12 @@ const VendorDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'ready' | 'submitted'>('all');
   const [submissionFilter, setSubmissionFilter] = useState<'all' | 'draft' | 'submitted' | 'approved'>('all');
+
+  // New state for date-wise invoice
+  const [selectedEntriesInvoice, setSelectedEntriesInvoice] = useState<{
+    subitem: ContractSubitem;
+    entries: QuantityEntry[];
+  } | null>(null);
 
   // Stats calculations
   const totalContracts = contracts.length;
@@ -103,6 +108,22 @@ const VendorDashboard: React.FC = () => {
     setViewingHistorySubitem(subitem);
   };
 
+  // New handler for date-wise invoice generation
+  const handleGenerateInvoiceForEntries = (subitem: ContractSubitem, selectedEntries: QuantityEntry[]) => {
+    setSelectedEntriesInvoice({ subitem, entries: selectedEntries });
+    setShowInvoicePreview(true);
+  };
+
+  // New handler for submitting selected entries
+  const handleSubmitEntries = (subitem: ContractSubitem, selectedEntries: QuantityEntry[]) => {
+    console.log('Submitting selected entries:', { subitem: subitem.id, entries: selectedEntries });
+    
+    toast({
+      title: "Entries Submitted",
+      description: `${selectedEntries.length} date-wise entries have been submitted for review`,
+    });
+  };
+
   const handleGenerateInvoice = () => {
     if (selectedSubitems.length === 0) {
       toast({
@@ -116,6 +137,34 @@ const VendorDashboard: React.FC = () => {
   };
 
   const getInvoiceItems = (): InvoiceItem[] => {
+    // If we have selected entries invoice, create invoice for those specific entries
+    if (selectedEntriesInvoice) {
+      const { subitem, entries } = selectedEntriesInvoice;
+      const contract = contracts.find(c => 
+        c.items.some(i => i.subitems.some(s => s.id === subitem.id))
+      );
+      const item = contract?.items.find(i => i.subitems.some(s => s.id === subitem.id));
+      
+      if (contract && item) {
+        const totalQuantity = entries.reduce((sum, entry) => sum + entry.quantity, 0);
+        return [{
+          contractId: contract.id,
+          itemId: item.id,
+          subitemId: subitem.id,
+          itemName: item.name,
+          subitemName: subitem.name,
+          totalQuantity: subitem.totalQuantity,
+          completedQuantity: totalQuantity,
+          rate: subitem.rate,
+          amount: totalQuantity * subitem.rate,
+          status: subitem.status,
+          selectedEntries: entries
+        }];
+      }
+      return [];
+    }
+
+    // Regular invoice generation
     const items: InvoiceItem[] = [];
     
     contracts.forEach(contract => {
@@ -145,6 +194,12 @@ const VendorDashboard: React.FC = () => {
   const handleSubmitInvoice = () => {
     console.log('Submitting invoice for items:', getInvoiceItems());
     setSelectedSubitems([]);
+    setSelectedEntriesInvoice(null);
+  };
+
+  const handleCloseInvoicePreview = () => {
+    setShowInvoicePreview(false);
+    setSelectedEntriesInvoice(null);
   };
 
   const getFilteredSubitems = () => {
@@ -327,6 +382,8 @@ const VendorDashboard: React.FC = () => {
                             onEditSubitem={setEditingSubitem}
                             onViewHistory={handleViewHistory}
                             onAddEntry={handleAddEntry}
+                            onGenerateInvoiceForEntries={handleGenerateInvoiceForEntries}
+                            onSubmitEntries={handleSubmitEntries}
                           />
                         </div>
                       )}
@@ -424,7 +481,7 @@ const VendorDashboard: React.FC = () => {
       <EnhancedInvoicePreview
         items={getInvoiceItems()}
         isOpen={showInvoicePreview}
-        onClose={() => setShowInvoicePreview(false)}
+        onClose={handleCloseInvoicePreview}
         onSubmit={handleSubmitInvoice}
         projectName={getCurrentProjectName()}
       />

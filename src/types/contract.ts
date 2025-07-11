@@ -47,7 +47,8 @@ export interface QuantityEntry {
   attachments?: string[];
   createdAt: string;
   isDraft: boolean;
-  entryDate: string; // New field for date-wise entries
+  entryDate: string;
+  isSelected?: boolean; // New field for selection
 }
 
 export interface ApprovalHistoryEntry {
@@ -72,4 +73,14 @@ export interface InvoiceItem {
   rate: number;
   amount: number;
   status: 'draft' | 'ready' | 'submitted';
+  selectedEntries?: QuantityEntry[]; // New field for selected date-wise entries
+}
+
+export interface DateWiseEntry {
+  entryId: string;
+  date: string;
+  quantity: number;
+  status: 'draft' | 'submitted' | 'approved';
+  amount: number;
+  isSelected: boolean;
 }

@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Download, Send, Eye, FileText } from 'lucide-react';
+import { Download, Send, Eye, FileText, Calendar } from 'lucide-react';
 import { InvoiceItem } from '../types/contract';
 import { formatINR } from '../utils/currency';
 import { useToast } from "@/hooks/use-toast";
+import { format, parseISO } from 'date-fns';
 
 interface EnhancedInvoicePreviewProps {
   items: InvoiceItem[];
@@ -76,6 +77,9 @@ const EnhancedInvoicePreview: React.FC<EnhancedInvoicePreviewProps> = ({
 
   if (items.length === 0) return null;
 
+  // Check if this is a date-wise invoice (has selected entries)
+  const isDateWiseInvoice = items.some(item => item.selectedEntries && item.selectedEntries.length > 0);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -83,6 +87,12 @@ const EnhancedInvoicePreview: React.FC<EnhancedInvoicePreviewProps> = ({
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
             Invoice Preview - {projectName}
+            {isDateWiseInvoice && (
+              <Badge className="bg-blue-100 text-blue-800">
+                <Calendar className="h-3 w-3 mr-1" />
+                Date-wise Invoice
+              </Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -102,6 +112,11 @@ const EnhancedInvoicePreview: React.FC<EnhancedInvoicePreviewProps> = ({
                   <Badge className="mt-2 bg-blue-100 text-blue-800">
                     {items.length} Items Selected
                   </Badge>
+                  {isDateWiseInvoice && (
+                    <Badge className="mt-1 bg-green-100 text-green-800 block">
+                      Date-wise Billing
+                    </Badge>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -158,7 +173,12 @@ const EnhancedInvoicePreview: React.FC<EnhancedInvoicePreviewProps> = ({
           {/* Invoice Items Table */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Work Items Breakdown</CardTitle>
+              <CardTitle className="text-lg">
+                Work Items Breakdown
+                {isDateWiseInvoice && (
+                  <span className="text-sm font-normal text-gray-600 ml-2">(Date-wise entries)</span>
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -167,6 +187,9 @@ const EnhancedInvoicePreview: React.FC<EnhancedInvoicePreviewProps> = ({
                     <tr className="border-b-2 border-gray-200">
                       <th className="text-left py-3 px-2 font-semibold">Item Description</th>
                       <th className="text-center py-3 px-2 font-semibold">Status</th>
+                      {isDateWiseInvoice && (
+                        <th className="text-center py-3 px-2 font-semibold">Dates</th>
+                      )}
                       <th className="text-right py-3 px-2 font-semibold">Total Qty</th>
                       <th className="text-right py-3 px-2 font-semibold">Completed</th>
                       <th className="text-right py-3 px-2 font-semibold">Rate</th>
@@ -175,30 +198,63 @@ const EnhancedInvoicePreview: React.FC<EnhancedInvoicePreviewProps> = ({
                   </thead>
                   <tbody>
                     {items.map((item, index) => (
-                      <tr key={`${item.contractId}-${item.subitemId}`} 
-                          className={`border-b ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
-                        <td className="py-3 px-2">
-                          <div>
-                            <div className="font-medium text-sm">{item.itemName}</div>
-                            <div className="text-xs text-gray-600">{item.subitemName}</div>
-                          </div>
-                        </td>
-                        <td className="text-center py-3 px-2">
-                          {getStatusBadge(item.status)}
-                        </td>
-                        <td className="text-right py-3 px-2 text-sm">
-                          {item.totalQuantity}
-                        </td>
-                        <td className="text-right py-3 px-2 text-sm font-medium">
-                          {item.completedQuantity}
-                        </td>
-                        <td className="text-right py-3 px-2 text-sm">
-                          {formatINR(item.rate)}
-                        </td>
-                        <td className="text-right py-3 px-2 text-sm font-bold">
-                          {formatINR(item.amount)}
-                        </td>
-                      </tr>
+                      <React.Fragment key={`${item.contractId}-${item.subitemId}`}>
+                        <tr className={`border-b ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
+                          <td className="py-3 px-2">
+                            <div>
+                              <div className="font-medium text-sm">{item.itemName}</div>
+                              <div className="text-xs text-gray-600">{item.subitemName}</div>
+                            </div>
+                          </td>
+                          <td className="text-center py-3 px-2">
+                            {getStatusBadge(item.status)}
+                          </td>
+                          {isDateWiseInvoice && (
+                            <td className="text-center py-3 px-2">
+                              {item.selectedEntries && item.selectedEntries.length > 0 ? (
+                                <div className="text-xs">
+                                  <Badge variant="outline" className="text-xs">
+                                    {item.selectedEntries.length} dates
+                                  </Badge>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-500">All dates</span>
+                              )}
+                            </td>
+                          )}
+                          <td className="text-right py-3 px-2 text-sm">
+                            {item.totalQuantity}
+                          </td>
+                          <td className="text-right py-3 px-2 text-sm font-medium">
+                            {item.completedQuantity}
+                          </td>
+                          <td className="text-right py-3 px-2 text-sm">
+                            {formatINR(item.rate)}
+                          </td>
+                          <td className="text-right py-3 px-2 text-sm font-bold">
+                            {formatINR(item.amount)}
+                          </td>
+                        </tr>
+                        
+                        {/* Date-wise breakdown if available */}
+                        {item.selectedEntries && item.selectedEntries.length > 0 && (
+                          <tr className="bg-blue-50">
+                            <td colSpan={isDateWiseInvoice ? 7 : 6} className="py-2 px-4">
+                              <div className="text-xs text-blue-800">
+                                <div className="font-medium mb-1">Selected Date-wise Entries:</div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                  {item.selectedEntries.map((entry) => (
+                                    <div key={entry.id} className="flex justify-between">
+                                      <span>{format(parseISO(entry.entryDate), 'dd MMM')}</span>
+                                      <span>{entry.quantity} units</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
@@ -239,6 +295,9 @@ const EnhancedInvoicePreview: React.FC<EnhancedInvoicePreviewProps> = ({
                     <li>• Net 30 Days from invoice date</li>
                     <li>• All measurements verified by Level 3 approver</li>
                     <li>• GST as applicable</li>
+                    {isDateWiseInvoice && (
+                      <li>• Date-wise entries verified chronologically</li>
+                    )}
                   </ul>
                 </div>
                 <div>
@@ -256,6 +315,14 @@ const EnhancedInvoicePreview: React.FC<EnhancedInvoicePreviewProps> = ({
                         {itemsByStatus.submitted?.length || 0}
                       </Badge>
                     </div>
+                    {isDateWiseInvoice && (
+                      <div className="flex justify-between">
+                        <span>Date-wise:</span>
+                        <Badge className="bg-green-100 text-green-800">
+                          Yes
+                        </Badge>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

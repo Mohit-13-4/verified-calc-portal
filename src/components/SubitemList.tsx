@@ -1,14 +1,14 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { Edit, Clock, CheckCircle, Calendar, History, Plus } from 'lucide-react';
-import { ContractSubitem } from '../types/contract';
+import { Edit, Clock, CheckCircle, Calendar, History, Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { ContractSubitem, QuantityEntry } from '../types/contract';
 import { formatINR } from '../utils/currency';
 import { format } from 'date-fns';
+import DateWiseEntrySelection from './DateWiseEntrySelection';
 
 interface SubitemListProps {
   subitems: ContractSubitem[];
@@ -17,6 +17,8 @@ interface SubitemListProps {
   onEditSubitem: (subitem: ContractSubitem) => void;
   onViewHistory: (subitem: ContractSubitem) => void;
   onAddEntry: (subitem: ContractSubitem) => void;
+  onGenerateInvoiceForEntries?: (subitem: ContractSubitem, selectedEntries: QuantityEntry[]) => void;
+  onSubmitEntries?: (subitem: ContractSubitem, selectedEntries: QuantityEntry[]) => void;
 }
 
 const SubitemList: React.FC<SubitemListProps> = ({ 
@@ -25,8 +27,20 @@ const SubitemList: React.FC<SubitemListProps> = ({
   onToggleSelection, 
   onEditSubitem,
   onViewHistory,
-  onAddEntry
+  onAddEntry,
+  onGenerateInvoiceForEntries,
+  onSubmitEntries
 }) => {
+  const [expandedSubitems, setExpandedSubitems] = useState<string[]>([]);
+
+  const toggleExpanded = (subitemId: string) => {
+    setExpandedSubitems(prev =>
+      prev.includes(subitemId)
+        ? prev.filter(id => id !== subitemId)
+        : [...prev, subitemId]
+    );
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'submitted': return 'bg-green-500';
@@ -80,117 +94,157 @@ const SubitemList: React.FC<SubitemListProps> = ({
     return subitem.entries.filter(entry => entry.isDraft).length;
   };
 
+  const handleGenerateInvoiceForEntries = (subitem: ContractSubitem, selectedEntries: QuantityEntry[]) => {
+    if (onGenerateInvoiceForEntries) {
+      onGenerateInvoiceForEntries(subitem, selectedEntries);
+    }
+  };
+
+  const handleSubmitEntries = (subitem: ContractSubitem, selectedEntries: QuantityEntry[]) => {
+    if (onSubmitEntries) {
+      onSubmitEntries(subitem, selectedEntries);
+    }
+  };
+
   return (
     <div className="space-y-3">
       {subitems.map((subitem) => {
         const progress = calculateProgress(subitem);
         const isSelected = selectedSubitems.includes(subitem.id);
+        const isExpanded = expandedSubitems.includes(subitem.id);
         const lastEntryDate = getLastEntryDate(subitem);
         const draftCount = getDraftEntryCount(subitem);
         
         return (
-          <Card key={subitem.id} className={`transition-all hover:shadow-sm ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={() => onToggleSelection(subitem.id)}
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <CardTitle className="text-sm font-medium">{subitem.name}</CardTitle>
-                    <p className="text-xs text-gray-600 mt-1">{subitem.description}</p>
-                    
-                    {/* Last Entry Date */}
-                    {lastEntryDate && (
-                      <div className="flex items-center gap-1 mt-2">
-                        <Calendar className="h-3 w-3 text-gray-400" />
-                        <span className="text-xs text-gray-500">
-                          Last entry: {format(new Date(lastEntryDate), 'dd MMM yyyy')}
-                        </span>
+          <div key={subitem.id}>
+            <Card className={`transition-all hover:shadow-sm ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => onToggleSelection(subitem.id)}
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-sm font-medium">{subitem.name}</CardTitle>
+                        {subitem.entries.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleExpanded(subitem.id)}
+                            className="h-6 w-6 p-0"
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
                       </div>
+                      <p className="text-xs text-gray-600 mt-1">{subitem.description}</p>
+                      
+                      {/* Last Entry Date */}
+                      {lastEntryDate && (
+                        <div className="flex items-center gap-1 mt-2">
+                          <Calendar className="h-3 w-3 text-gray-400" />
+                          <span className="text-xs text-gray-500">
+                            Last entry: {format(new Date(lastEntryDate), 'dd MMM yyyy')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(subitem.status)}
+                    
+                    {/* Draft Count Badge */}
+                    {draftCount > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {draftCount} draft{draftCount > 1 ? 's' : ''}
+                      </Badge>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {getStatusBadge(subitem.status)}
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="grid grid-cols-2 gap-4 mb-3 text-sm">
+                  <div>
+                    <span className="text-gray-600">Total: </span>
+                    <span className="font-medium">{subitem.totalQuantity} {subitem.unit}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Completed: </span>
+                    <span className="font-medium">{subitem.completedQuantity} {subitem.unit}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Rate: </span>
+                    <span className="font-medium">{formatINR(subitem.rate)} per {subitem.unit}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Value: </span>
+                    <span className="font-medium">{formatINR(subitem.completedQuantity * subitem.rate)}</span>
+                  </div>
+                </div>
+                
+                <div className="mb-3">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs text-gray-600">Progress</span>
+                    <span className="text-xs font-medium">{progress}%</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                </div>
+                
+                {/* Entry Count and Last Updated */}
+                <div className="flex justify-between items-center text-xs text-gray-500 mb-3">
+                  <span>Last updated: {formatDate(subitem.lastUpdated)}</span>
+                  <span>{subitem.entries.length} entries</span>
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onAddEntry(subitem)}
+                    className="flex items-center gap-1"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add Entry
+                  </Button>
                   
-                  {/* Draft Count Badge */}
-                  {draftCount > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      {draftCount} draft{draftCount > 1 ? 's' : ''}
-                    </Badge>
-                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onViewHistory(subitem)}
+                    className="flex items-center gap-1"
+                  >
+                    <History className="h-3 w-3" />
+                    History
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEditSubitem(subitem)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="grid grid-cols-2 gap-4 mb-3 text-sm">
-                <div>
-                  <span className="text-gray-600">Total: </span>
-                  <span className="font-medium">{subitem.totalQuantity} {subitem.unit}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Completed: </span>
-                  <span className="font-medium">{subitem.completedQuantity} {subitem.unit}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Rate: </span>
-                  <span className="font-medium">{formatINR(subitem.rate)} per {subitem.unit}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Value: </span>
-                  <span className="font-medium">{formatINR(subitem.completedQuantity * subitem.rate)}</span>
-                </div>
-              </div>
-              
-              <div className="mb-3">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs text-gray-600">Progress</span>
-                  <span className="text-xs font-medium">{progress}%</span>
-                </div>
-                <Progress value={progress} className="h-2" />
-              </div>
-              
-              {/* Entry Count and Last Updated */}
-              <div className="flex justify-between items-center text-xs text-gray-500 mb-3">
-                <span>Last updated: {formatDate(subitem.lastUpdated)}</span>
-                <span>{subitem.entries.length} entries</span>
-              </div>
-              
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onAddEntry(subitem)}
-                  className="flex items-center gap-1"
-                >
-                  <Plus className="h-3 w-3" />
-                  Add Entry
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onViewHistory(subitem)}
-                  className="flex items-center gap-1"
-                >
-                  <History className="h-3 w-3" />
-                  History
-                </Button>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onEditSubitem(subitem)}
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* Date-wise Entry Selection - Expanded View */}
+            {isExpanded && (
+              <DateWiseEntrySelection
+                subitem={subitem}
+                onGenerateInvoice={(selectedEntries) => handleGenerateInvoiceForEntries(subitem, selectedEntries)}
+                onSubmitEntries={(selectedEntries) => handleSubmitEntries(subitem, selectedEntries)}
+              />
+            )}
+          </div>
         );
       })}
     </div>
