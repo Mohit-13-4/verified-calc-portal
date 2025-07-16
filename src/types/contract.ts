@@ -44,11 +44,21 @@ export interface QuantityEntry {
   length?: number;
   breadth?: number;
   notes?: string;
-  attachments?: string[];
+  attachments?: DocumentAttachment[];
   createdAt: string;
   isDraft: boolean;
   entryDate: string;
   isSelected?: boolean; // New field for selection
+}
+
+export interface DocumentAttachment {
+  id: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  filePath: string;
+  uploadedAt: string;
+  notes?: string;
 }
 
 export interface ApprovalHistoryEntry {

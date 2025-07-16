@@ -4,11 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { Edit, Clock, CheckCircle, Calendar, History, Plus, ChevronDown, ChevronRight } from 'lucide-react';
-import { ContractSubitem, QuantityEntry } from '../types/contract';
+import { Edit, Clock, CheckCircle, Calendar, History, Plus, ChevronDown, ChevronRight, Paperclip } from 'lucide-react';
+import { ContractSubitem, QuantityEntry, DocumentAttachment } from '../types/contract';
 import { formatINR } from '../utils/currency';
 import { format } from 'date-fns';
 import DateWiseEntrySelection from './DateWiseEntrySelection';
+import EntryAttachmentModal from './EntryAttachmentModal';
+import EntryTimeline from './EntryTimeline';
 
 interface SubitemListProps {
   subitems: ContractSubitem[];
@@ -19,6 +21,7 @@ interface SubitemListProps {
   onAddEntry: (subitem: ContractSubitem) => void;
   onGenerateInvoiceForEntries?: (subitem: ContractSubitem, selectedEntries: QuantityEntry[]) => void;
   onSubmitEntries?: (subitem: ContractSubitem, selectedEntries: QuantityEntry[]) => void;
+  onAddDocuments?: (subitemId: string, date: Date, files: File[], notes: string) => void;
 }
 
 const SubitemList: React.FC<SubitemListProps> = ({ 
@@ -29,12 +32,27 @@ const SubitemList: React.FC<SubitemListProps> = ({
   onViewHistory,
   onAddEntry,
   onGenerateInvoiceForEntries,
-  onSubmitEntries
+  onSubmitEntries,
+  onAddDocuments
 }) => {
   const [expandedSubitems, setExpandedSubitems] = useState<string[]>([]);
+  const [timelineExpandedSubitems, setTimelineExpandedSubitems] = useState<string[]>([]);
+  const [attachmentModal, setAttachmentModal] = useState<{
+    isOpen: boolean;
+    subitemId?: string;
+    subitemName?: string;
+  }>({ isOpen: false });
 
   const toggleExpanded = (subitemId: string) => {
     setExpandedSubitems(prev =>
+      prev.includes(subitemId)
+        ? prev.filter(id => id !== subitemId)
+        : [...prev, subitemId]
+    );
+  };
+
+  const toggleTimelineExpanded = (subitemId: string) => {
+    setTimelineExpandedSubitems(prev =>
       prev.includes(subitemId)
         ? prev.filter(id => id !== subitemId)
         : [...prev, subitemId]
@@ -203,8 +221,8 @@ const SubitemList: React.FC<SubitemListProps> = ({
                   <span>{subitem.entries.length} entries</span>
                 </div>
                 
-                {/* Action Buttons */}
-                <div className="flex gap-2">
+                 {/* Action Buttons */}
+                <div className="flex gap-2 flex-wrap">
                   <Button
                     variant="outline"
                     size="sm"
@@ -218,11 +236,45 @@ const SubitemList: React.FC<SubitemListProps> = ({
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => setAttachmentModal({ 
+                      isOpen: true, 
+                      subitemId: subitem.id, 
+                      subitemName: subitem.name 
+                    })}
+                    className="flex items-center gap-1"
+                  >
+                    <Paperclip className="h-3 w-3" />
+                    Add Documents
+                    {subitem.entries.some(entry => entry.attachments && entry.attachments.length > 0) && (
+                      <Badge variant="secondary" className="ml-1 h-4 min-w-4 text-xs">
+                        {subitem.entries.reduce((total, entry) => total + (entry.attachments?.length || 0), 0)}
+                      </Badge>
+                    )}
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => onViewHistory(subitem)}
                     className="flex items-center gap-1"
                   >
                     <History className="h-3 w-3" />
                     History
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleTimelineExpanded(subitem.id)}
+                    className="flex items-center gap-1"
+                  >
+                    <Calendar className="h-3 w-3" />
+                    Timeline
+                    {timelineExpandedSubitems.includes(subitem.id) ? (
+                      <ChevronDown className="h-3 w-3" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3" />
+                    )}
                   </Button>
                   
                   <Button
@@ -244,9 +296,41 @@ const SubitemList: React.FC<SubitemListProps> = ({
                 onSubmitEntries={(selectedEntries) => handleSubmitEntries(subitem, selectedEntries)}
               />
             )}
+
+            {/* Entry Timeline - Document View */}
+            {timelineExpandedSubitems.includes(subitem.id) && (
+              <EntryTimeline
+                entries={subitem.entries}
+                onPreviewDocument={(document) => {
+                  // Mock preview - in real app would open document viewer
+                  window.open(document.filePath, '_blank');
+                }}
+                onDownloadDocument={(document) => {
+                  // Mock download - in real app would trigger file download
+                  const link = window.document.createElement('a');
+                  link.href = document.filePath;
+                  link.download = document.fileName;
+                  window.document.body.appendChild(link);
+                  link.click();
+                  window.document.body.removeChild(link);
+                }}
+              />
+            )}
           </div>
         );
       })}
+
+      {/* Document Attachment Modal */}
+      <EntryAttachmentModal
+        isOpen={attachmentModal.isOpen}
+        onClose={() => setAttachmentModal({ isOpen: false })}
+        onSave={(date, files, notes) => {
+          if (onAddDocuments && attachmentModal.subitemId) {
+            onAddDocuments(attachmentModal.subitemId, date, files, notes);
+          }
+        }}
+        subitemName={attachmentModal.subitemName || ''}
+      />
     </div>
   );
 };

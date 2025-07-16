@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Save, Send, Upload, X } from 'lucide-react';
-import { ContractSubitem, QuantityEntry } from '../types/contract';
+import { ContractSubitem, QuantityEntry, DocumentAttachment } from '../types/contract';
 import { formatINR } from '../utils/currency';
 import { useToast } from "@/hooks/use-toast";
 
@@ -31,7 +31,7 @@ const SubitemEntryForm: React.FC<SubitemEntryFormProps> = ({
     length: '',
     breadth: '',
     notes: '',
-    attachments: [] as string[]
+    attachments: [] as DocumentAttachment[]
   });
 
   useEffect(() => {
@@ -105,10 +105,18 @@ const SubitemEntryForm: React.FC<SubitemEntryFormProps> = ({
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
-      const fileNames = Array.from(files).map(file => file.name);
+      const newDocuments: DocumentAttachment[] = Array.from(files).map(file => ({
+        id: `temp-${Date.now()}-${Math.random()}`,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        filePath: `/temp/${file.name}`,
+        uploadedAt: new Date().toISOString(),
+        notes: ''
+      }));
       setFormData(prev => ({
         ...prev,
-        attachments: [...prev.attachments, ...fileNames]
+        attachments: [...prev.attachments, ...newDocuments]
       }));
     }
   };
@@ -233,9 +241,9 @@ const SubitemEntryForm: React.FC<SubitemEntryFormProps> = ({
               </div>
               {formData.attachments.length > 0 && (
                 <div className="mt-2 space-y-1">
-                  {formData.attachments.map((file, index) => (
+                  {formData.attachments.map((doc, index) => (
                     <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                      <span className="text-sm">{file}</span>
+                      <span className="text-sm">{doc.fileName}</span>
                       <Button
                         variant="ghost"
                         size="sm"

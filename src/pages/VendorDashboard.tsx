@@ -124,6 +124,15 @@ const VendorDashboard: React.FC = () => {
     });
   };
 
+  const handleAddDocuments = (subitemId: string, date: Date, files: File[], notes: string) => {
+    console.log('Adding documents for subitem:', subitemId, 'Date:', date, 'Files:', files.length, 'Notes:', notes);
+    // Mock implementation - in real app would upload files and update entry
+    toast({
+      title: "Documents Added",
+      description: `Successfully added ${files.length} document(s) for ${date.toDateString()}`,
+    });
+  };
+
   const handleGenerateInvoice = () => {
     if (selectedSubitems.length === 0) {
       toast({
@@ -382,8 +391,9 @@ const VendorDashboard: React.FC = () => {
                             onEditSubitem={setEditingSubitem}
                             onViewHistory={handleViewHistory}
                             onAddEntry={handleAddEntry}
-                            onGenerateInvoiceForEntries={handleGenerateInvoiceForEntries}
-                            onSubmitEntries={handleSubmitEntries}
+                        onGenerateInvoiceForEntries={handleGenerateInvoiceForEntries}
+                        onSubmitEntries={handleSubmitEntries}
+                        onAddDocuments={handleAddDocuments}
                           />
                         </div>
                       )}

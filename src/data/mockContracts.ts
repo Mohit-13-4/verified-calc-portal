@@ -40,7 +40,15 @@ export const mockContracts: Contract[] = [
                 length: 50,
                 breadth: 25,
                 notes: 'Completed section from KM 0-2.5',
-                attachments: ['progress-photo-1.jpg'],
+                attachments: [{
+                  id: 'doc1',
+                  fileName: 'progress-photo-1.jpg',
+                  fileType: 'image/jpeg',
+                  fileSize: 2048000,
+                  filePath: '/uploads/progress-photo-1.jpg',
+                  uploadedAt: '2024-01-18T09:30:00Z',
+                  notes: 'Progress photo showing completed work'
+                }],
                 createdAt: '2024-01-18T09:00:00Z',
                 isDraft: false,
                 entryDate: '2024-01-18'
@@ -89,7 +97,15 @@ export const mockContracts: Contract[] = [
                 length: 36,
                 breadth: 50,
                 notes: 'Initial section completed',
-                attachments: ['quality-check.pdf'],
+                attachments: [{
+                  id: 'doc2',
+                  fileName: 'quality-check.pdf',
+                  fileType: 'application/pdf',
+                  fileSize: 1024000,
+                  filePath: '/uploads/quality-check.pdf',
+                  uploadedAt: '2024-01-19T14:30:00Z',
+                  notes: 'Quality inspection report'
+                }],
                 createdAt: '2024-01-19T14:15:00Z',
                 isDraft: true,
                 entryDate: '2024-01-19'
@@ -124,7 +140,23 @@ export const mockContracts: Contract[] = [
                 subitemId: 'subitem-3',
                 quantity: 3000,
                 notes: 'Complete section finished with quality approval',
-                attachments: ['drain-completion.jpg', 'quality-certificate.pdf'],
+                attachments: [{
+                  id: 'doc3',
+                  fileName: 'drain-completion.jpg',
+                  fileType: 'image/jpeg',
+                  fileSize: 3072000,
+                  filePath: '/uploads/drain-completion.jpg',
+                  uploadedAt: '2024-01-21T17:00:00Z',
+                  notes: 'Completion photo of drainage work'
+                }, {
+                  id: 'doc4',
+                  fileName: 'quality-certificate.pdf',
+                  fileType: 'application/pdf',
+                  fileSize: 1536000,
+                  filePath: '/uploads/quality-certificate.pdf',
+                  uploadedAt: '2024-01-21T17:15:00Z',
+                  notes: 'Quality certification document'
+                }],
                 createdAt: '2024-01-21T16:45:00Z',
                 isDraft: false,
                 entryDate: '2024-01-21'
@@ -185,7 +217,15 @@ export const mockContracts: Contract[] = [
                 subitemId: 'subitem-4',
                 quantity: 180,
                 notes: 'Foundation excavation and concrete pouring completed',
-                attachments: ['foundation-progress.jpg'],
+                attachments: [{
+                  id: 'doc5',
+                  fileName: 'foundation-progress.jpg',
+                  fileType: 'image/jpeg',
+                  fileSize: 2560000,
+                  filePath: '/uploads/foundation-progress.jpg',
+                  uploadedAt: '2024-01-22T11:45:00Z',
+                  notes: 'Foundation work progress documentation'
+                }],
                 createdAt: '2024-01-22T11:20:00Z',
                 isDraft: true,
                 entryDate: '2024-01-22'
